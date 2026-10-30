@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>W — Beyond the Third Axis</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div id="game">
+    <canvas id="view"></canvas>
+    <div id="hud" class="hidden">
+      <div class="hud-left">
+        <div class="hud-title" id="level-name">LEVEL</div>
+        <div class="hud-sub">POSITION 
+          <br>x: <span id="x-value">0.0</span>
+          <br>y: <span id="y-value">0.0</span>
+          <br>z: <span id="z-value">0.0</span>
+          <br>w: <span id="w-value">0.0</span></div>
+      </div>
+      <div class="crosshair">+</div>
+      <div class="hud-help">WASD move · Mouse look · Space jump<br><kbd>+</kbd>/<kbd>-</kbd> shift along W · Esc pause</div>
+      <div id="toast"></div>
+    </div>
+
+    <section id="title-screen" class="screen">
+      <div class="eyebrow">A FOUR-DIMENSIONAL EXPERIMENT</div>
+      <h1>W<span>—</span></h1>
+      <p class="subtitle">BEYOND THE THIRD AXIS</p>
+      <p class="intro">You can move through three dimensions.<br>But there is another direction.</p>
+      <button id="start-button" class="primary">ENTER THE FOURTH DIMENSION</button>
+      <button id="levels-button" class="secondary">CHOOSE A LEVEL</button>
+      <p class="small">WASD · Mouse · Space · + / −</p>
+    </section>
+
+    <section id="level-screen" class="screen hidden">
+      <div class="eyebrow">SELECT A REALITY</div>
+      <h2>Choose a level</h2>
+      <div id="level-list" class="level-list"></div>
+      <button id="level-back" class="secondary">BACK</button>
+    </section>
+
+    <section id="pause-screen" class="screen hidden">
+      <div class="eyebrow">REALITY SUSPENDED</div>
+      <h2>Paused</h2>
+      <p id="pause-level"></p>
+      <button id="resume-button" class="primary">RESUME</button>
+      <button id="pause-levels-button" class="secondary">CHANGE LEVEL</button>
+      <button id="title-button" class="text-button">TITLE SCREEN</button>
+    </section>
+
+    <section id="complete-screen" class="screen hidden">
+      <div class="eyebrow">DIMENSIONAL TRANSIT COMPLETE</div>
+      <h2 id="complete-title">Level complete</h2>
+      <p id="complete-message"></p>
+      <button id="next-button" class="primary">NEXT LEVEL</button>
+      <button id="complete-levels-button" class="secondary">LEVEL SELECT</button>
+    </section>
+
+    <div id="loading" class="loading">Loading worlds…</div>
+  </div>
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>

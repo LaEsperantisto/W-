@@ -1,0 +1,62 @@
+{
+  "name": "The Fourfold Maze",
+  "description": "Four overlapping corridors. Only one of them leads to the exit, and the correct path changes as you move.",
+  "completion": "You have navigated a maze that could not exist in three dimensions.",
+  "spawn": [-6, 0.05, 6, 0],
+  "boxes": [
+    {
+      "pos": [-4, -0.5, 5, 0],
+      "size": [5, 1, 5, 1]
+    },
+    {
+      "pos": [2, -0.5, 5, 2],
+      "size": [5, 1, 5, 1]
+    },
+    {
+      "pos": [2, -0.5, -1, 4],
+      "size": [5, 1, 5, 1]
+    },
+    {
+      "pos": [-4, -0.5, -1, 2],
+      "size": [5, 1, 5, 1]
+    },
+    {
+      "pos": [-4, -0.5, -7, 4],
+      "size": [5, 1, 5, 1]
+    },
+    {
+      "pos": [2, -0.5, -7, 0],
+      "size": [5, 1, 5, 1]
+    },
+    {
+      "pos": [-1, 1, 5, 0],
+      "size": [1, 2, 5, 1]
+    },
+    {
+      "pos": [2, 1, 2, 2],
+      "size": [1, 2, 4, 1]
+    },
+    {
+      "pos": [-4, 1, -1, 2],
+      "size": [1, 2, 5, 1]
+    },
+    {
+      "pos": [-1, 1, -4, 4],
+      "size": [1, 2, 4, 1]
+    },
+    {
+      "pos": [2, 1, -7, 0],
+      "size": [1, 2, 4, 1]
+    },
+    {
+      "pos": [0, 1, -7, 4],
+      "size": [1, 2, 4, 1]
+    }
+  ],
+  "goal": {
+    "pos": [4, 1, -8, 0],
+    "size": [1.2, 2.2, 0.4, 1.2],
+    "colour": 9224144,
+    "solid": false
+  }
+}

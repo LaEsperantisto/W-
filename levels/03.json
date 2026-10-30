@@ -1,0 +1,48 @@
+{
+  "name": "The Offset",
+  "description": "The bridge is broken, or perhaps you are looking at the wrong slice.",
+  "completion": "You discovered that distance in four dimensions is not always what it seems.",
+  "spawn": [-5, 0.05, 4, 0],
+  "boxes": [
+    {
+      "pos": [-3, -0.5, 3, 0],
+      "size": [5, 1, 6, 1]
+    },
+    {
+      "pos": [3, -0.5, 3, 2],
+      "size": [5, 1, 6, 1]
+    },
+    {
+      "pos": [0, -0.5, -2, 2],
+      "size": [3, 1, 5, 1]
+    },
+    {
+      "pos": [4, -0.5, -9, 0],
+      "size": [5, 1, 4, 1]
+    },
+    {
+      "pos": [-1, 1, 2, 0],
+      "size": [1, 2, 3, 1]
+    },
+    {
+      "pos": [1, 1, 2, 2],
+      "size": [1, 2, 3, 1],
+      "colour": 5679825
+    },
+    {
+      "pos": [3, 1, -1, 2],
+      "size": [1, 2, 3, 1],
+      "colour": 5679825
+    },
+    {
+      "pos": [4, 1, -8, 0],
+      "size": [1, 2, 3, 1]
+    }
+  ],
+  "goal": {
+    "pos": [7, 1, -9, 0],
+    "size": [1.2, 2.2, 0.4, 1.2],
+    "colour": 9224144,
+    "solid": false
+  }
+}
