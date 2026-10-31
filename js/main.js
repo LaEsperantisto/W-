@@ -49,23 +49,6 @@ const grid = new THREE.GridHelper(100, 100, 0x294452, 0x172a37);
 grid.position.y = -0.02;
 scene.add(grid);
 
-
-// ============================================================
-// SECOND 3D SCENE (WXZ)
-// ============================================================
-
-// The second scene uses:
-//   Three.js X = original X
-//   Three.js Y = original W
-//   Three.js Z = original Z
-//
-// The original Y coordinate is fixed at the player's eye height.
-//
-// Therefore, this scene displays the intersection:
-//   Y = player.y + 1.55
-//
-// This is a genuine 3D slice, not a 4D perspective projection.
-
 let perceptionRenderer = null;
 let perceptionScene = null;
 let perceptionCamera = null;
@@ -91,7 +74,7 @@ function createPerceptionView() {
       position: fixed;
       top: 12px;
       right: 12px;
-      width: 300px;
+      width: 500px;
       height: 220px;
       z-index: 1000;
       pointer-events: none;
@@ -168,97 +151,69 @@ function updatePerceptionSlice() {
   if (!perceptionScene) return;
 
   for (const item of objects) {
-    item.perceptionMesh.visible = true;
+    const mesh = item.perceptionMesh;
+    if (!mesh) continue;
+
+    const centreY = item.pos4[1];
+    const halfY = item.size4[1] / 2;
+
+    // Show the object whenever the current Y slice
+    // intersects it, including when the player is inside.
+    mesh.visible = true;
+
+    mesh.frustumCulled = false;
+    mesh.material.side = THREE.DoubleSide;
+
+    // Make the outlines visible from inside.
+    const outline = mesh.children[0];
+
+    if (outline) {
+      outline.material.depthTest = false;
+      outline.material.depthWrite = false;
+      outline.renderOrder = 2;
+    }
+
+    mesh.renderOrder = 1;
   }
 }
 
 function renderPerceptionView() {
   if (!perceptionRenderer || !perceptionCamera) return;
 
-  // Position the camera in the WXZ coordinate system.
+  // Position the camera in WXZ coordinates.
   perceptionCamera.position.set(
     player.x,
     player.w,
     player.z
   );
 
-  // Camera orientation.
+  // The perception camera has its own orientation.
+  // It follows horizontal rotation but never follows pitch.
   perceptionCamera.rotation.order = 'YXZ';
   perceptionCamera.rotation.x = player.pitch;
   perceptionCamera.rotation.y = player.yaw;
   perceptionCamera.rotation.z = 0;
 
-  // Create the W-coordinate grid if necessary.
+  // Create the grid if necessary.
   if (!perceptionGrid) {
     perceptionGrid = new THREE.GridHelper(
-      100,       // Grid size
-      100,       // Number of divisions
-      0x4488ff,  // Centre lines
-      0x555555   // Grid lines
+      100,
+      100,
+      0x4488ff,
+      0x555555
     );
 
     perceptionScene.add(perceptionGrid);
   }
 
-  // Create the horizontal rings around the camera once if they don't exist yet
-  if (!perceptionHorizontalRings) {
-    // 1. Configuration parameters
-    const radius = 5;           // Distance from the camera (adjust as needed)
-    const ringCount = 80;       // Number of horizontal rings stacked vertically
-    const ringSpacing = W_STEP; // Vertical distance between each ring
-    const segments = 32;        // Smoothness/resolution of each circular ring
-
-    const positions = [];
-
-    // 2. Generate vertex positions for stacked horizontal rings
-    for (let r = 0; r < ringCount; r++) {
-        // Calculate the Y/W position for this specific ring (centered vertically)
-        const y = (r - ringCount / 2) * ringSpacing;
-
-        // Create a complete circle for each ring using line segments
-        for (let i = 0; i < segments; i++) {
-            const theta1 = (i / segments) * Math.PI * 2;
-            const theta2 = ((i + 1) / segments) * Math.PI * 2;
-
-            const x1 = Math.cos(theta1) * radius;
-            const z1 = Math.sin(theta1) * radius;
-
-            const x2 = Math.cos(theta2) * radius;
-            const z2 = Math.sin(theta2) * radius;
-
-            // Push start and end points for each segment of the ring
-            positions.push(x1, y, z1);
-            positions.push(x2, y, z2);
-        }
-    }
-
-    // 3. Create geometry and material
-    const geometry = new THREE.BufferGeometry();
-    geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
-
-    const material = new THREE.LineBasicMaterial({
-        color: 0x00ffff,     // Cyan color
-        transparent: true,
-        opacity: 0.6         // Soft fade effect
-    });
-
-    // 4. Create the mesh and add it to the scene
-    perceptionHorizontalRings = new THREE.LineSegments(geometry, material);
-    // perceptionScene.add(perceptionHorizontalRings);
-  }
-
-  // Keep the grid at the player's current coordinate.
+  // Keep the grid centred on the player.
   perceptionGrid.position.set(
     player.x,
     player.w,
     player.z
   );
 
-  // Keep the rings locked to the player/camera position every frame.
-  perceptionHorizontalRings.position.x = player.x;
-  perceptionHorizontalRings.position.z = player.z;
-
-  // Render.
+  // Render the perception view.
   perceptionRenderer.render(
     perceptionScene,
     perceptionCamera
@@ -362,10 +317,10 @@ function material(hex, opacity = 1, emissive = 0x000000) {
       color: hex,
       roughness: 0.78,
       metalness: 0.08,
-      transparent: opacity < 1,
       opacity,
       emissive,
-      emissiveIntensity: 0.5
+      emissiveIntensity: 0.5,
+      side: THREE.DoubleSide
     }));
   }
 
@@ -460,11 +415,21 @@ function addHyperBox(rawSpec, isGoal = false) {
 
   const mat = material(
     spec.colour ?? (isGoal ? 0x8cf0d0 : 0x7895a8),
-    isGoal ? 0.9 : 1,
+    isGoal ? 0.9 : 0.35, // Slightly transparent so you can see when inside
     isGoal ? 0x164b3b : 0
   );
 
   const mesh = new THREE.Mesh(geo, mat);
+
+  // Add edge outlines so blocks are clearly defined from the inside
+  const edgesGeo = new THREE.EdgesGeometry(geo);
+  const edgesMat = new THREE.LineBasicMaterial({
+    color: spec.colour,
+    transparent: true,
+    opacity: 0.8
+  });
+  const edgeLines = new THREE.LineSegments(edgesGeo, edgesMat);
+  mesh.add(edgeLines);
 
   mesh.position.set(
     spec.pos[0],
@@ -478,37 +443,46 @@ function addHyperBox(rawSpec, isGoal = false) {
   scene.add(mesh);
 
   // ----------------------------------------------------------
-  // WXZ mesh
+  // WXZ mesh (Perception View)
   // ----------------------------------------------------------
-  //
-  // Original dimensions:
-  //   X = size[0]
-  //   Y = size[1]
-  //   Z = size[2]
-  //   W = size[3]
-  //
-  // WXZ dimensions:
-  //   X = size[0]
-  //   Y = size[3]  (original W)
-  //   Z = size[2]
-  //
-  // The original Y dimension is not rendered as a dimension:
-  // it determines whether the box intersects the slice.
 
   const perceptionGeometry = new THREE.BoxGeometry(
     spec.size[0],
     spec.size[3],
     spec.size[2]
   );
-
-  // Use an independent material so changes in the main view
-  // cannot accidentally alter the perception view.
   const perceptionMaterial = mat.clone();
+
+  // Render both sides of the geometry.
+  perceptionMaterial.side = THREE.DoubleSide;
+
+  // Prevent transparent surfaces from incorrectly
+  // writing to the depth buffer.
+  perceptionMaterial.depthWrite = false;
 
   const perceptionMesh = new THREE.Mesh(
     perceptionGeometry,
     perceptionMaterial
   );
+
+  // Never cull perception meshes based on their bounds.
+  perceptionMesh.frustumCulled = false;
+  perceptionMesh.renderOrder = 1;
+
+  // Add matching outlines to the perception mesh.
+  const perceptionEdgesGeo = new THREE.EdgesGeometry(perceptionGeometry);
+
+  const perceptionEdgeMaterial = edgesMat.clone();
+  perceptionEdgeMaterial.depthTest = false;
+  perceptionEdgeMaterial.depthWrite = false;
+
+  const perceptionEdgeLines = new THREE.LineSegments(
+    perceptionEdgesGeo,
+    perceptionEdgeMaterial
+  );
+
+  perceptionEdgeLines.renderOrder = 2;
+  perceptionMesh.add(perceptionEdgeLines);
 
   perceptionMesh.position.set(
     spec.pos[0],
@@ -523,17 +497,11 @@ function addHyperBox(rawSpec, isGoal = false) {
     perceptionScene.add(perceptionMesh);
   }
 
-  // ----------------------------------------------------------
-  // Store both representations of the same hyperbox.
-  // ----------------------------------------------------------
-
   const item = {
     mesh,
     perceptionMesh,
-
     pos4: spec.pos,
     size4: spec.size,
-
     solid: spec.solid,
     isGoal
   };
@@ -984,6 +952,7 @@ function pause() {
   if (!running) return;
 
   running = false;
+  keys = {};
 
   if ($('pause-level')) {
     $('pause-level').textContent = currentLevel.name;
@@ -1084,9 +1053,18 @@ if ($('next-button')) {
 document.addEventListener('pointerlockchange', () => {
   locked = document.pointerLockElement === viewCanvas;
 
-  if (!locked && running) {
-    pause();
+  if (!locked) {
+    keys = {};
+
+    if (running) {
+      pause();
+    }
   }
+});
+
+// Clear held keys if the browser loses focus.
+window.addEventListener('blur', () => {
+  keys = {};
 });
 
 document.addEventListener('mousemove', e => {

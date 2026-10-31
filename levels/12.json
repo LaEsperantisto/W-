@@ -1,0 +1,91 @@
+{
+  "name": "Hyper-Labyrinth",
+  "description": "A complex network of multi-dimensional chambers. Think in four dimensions or remain lost forever.",
+  "completion": "Mastery over the fourth dimension achieved. You are no longer bound by 3D geometry.",
+  "spawn": [-8, 0.05, 8, 0],
+  "boxes": [
+    {
+      "pos": [-7, -0.5, 7, 0],
+      "size": [5, 1, 5, 1]
+    },
+    {
+      "pos": [0, -0.5, 7, 1.5],
+      "size": [5, 1, 5, 1],
+      "colour": 5679825
+    },
+    {
+      "pos": [7, -0.5, 7, 3],
+      "size": [5, 1, 5, 1]
+    },
+    {
+      "pos": [7, 0.5, 0, 4.5],
+      "size": [5, 1, 5, 1],
+      "colour": 16753920
+    },
+    {
+      "pos": [0, 1.5, 0, 3],
+      "size": [5, 1, 5, 1],
+      "colour": 5679825
+    },
+    {
+      "pos": [-7, 2.5, 0, 1.5],
+      "size": [5, 1, 5, 1]
+    },
+    {
+      "pos": [-7, 3.5, -7, 0],
+      "size": [5, 1, 5, 1],
+      "colour": 7820712
+    },
+    {
+      "pos": [0, 4.5, -7, 2],
+      "size": [5, 1, 5, 1],
+      "colour": 16753920
+    },
+    {
+      "pos": [7, 5.5, -7, 4],
+      "size": [6, 1, 6, 1],
+      "colour": 9224144
+    },
+    {
+      "pos": [-3.5, 1, 7, 0.75],
+      "size": [2, 1, 2, 1],
+      "colour": 5679825
+    },
+    {
+      "pos": [3.5, 1, 7, 2.25],
+      "size": [2, 1, 2, 1],
+      "colour": 5679825
+    },
+    {
+      "pos": [3.5, 2, 0, 3.75],
+      "size": [2, 1, 2, 1],
+      "colour": 16753920
+    },
+    {
+      "pos": [-3.5, 3, 0, 2.25],
+      "size": [2, 1, 2, 1],
+      "colour": 5679825
+    },
+    {
+      "pos": [-7, 4, -3.5, 0.75],
+      "size": [2, 1, 2, 1],
+      "colour": 7820712
+    },
+    {
+      "pos": [-3.5, 5, -7, 1],
+      "size": [2, 1, 2, 1],
+      "colour": 16753920
+    },
+    {
+      "pos": [3.5, 6, -7, 3],
+      "size": [2, 1, 2, 1],
+      "colour": 9224144
+    }
+  ],
+  "goal": {
+    "pos": [7, 7, -7, 4],
+    "size": [1.2, 2.2, 0.4, 1.2],
+    "colour": 9224144,
+    "solid": false
+  }
+}

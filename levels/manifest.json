@@ -1,28 +1,16 @@
 {
   "levels": [
-    {
-      "file": "01.json"
-    },
-    {
-      "file": "02.json"
-    },
-    {
-      "file": "03.json"
-    },
-    {
-      "file": "04.json"
-    },
-    {
-      "file": "05.json"
-    },
-    {
-      "file": "06.json"
-    },
-    {
-      "file": "07.json"
-    },
-    {
-      "file": "08.json"
-    }
+    { "file": "01.json" },
+    { "file": "02.json" },
+    { "file": "03.json" },
+    { "file": "04.json" },
+    { "file": "05.json" },
+    { "file": "06.json" },
+    { "file": "07.json" },
+    { "file": "08.json" },
+    { "file": "09.json" },
+    { "file": "10.json" },
+    { "file": "11.json" },
+    { "file": "12.json" }
   ]
 }
