@@ -10,7 +10,8 @@ export const DEFAULTS = {
   perceptionDrift: 3,
   wFade: true,
   quality: 'high', // 'off' | 'low' | 'high'
-  wStep: 0.25
+  wStep: 0.25, // 0.25 .. 2
+  viewScale: 1 // slice views panel multiplier, 0.5 .. 2
 };
 
 function clampSettings(s) {
@@ -24,7 +25,12 @@ function clampSettings(s) {
       : Math.min(8, Math.max(0, Number(s.perceptionDrift)))),
     wFade: !!s.wFade,
     quality: ['off', 'low', 'high'].includes(s.quality) ? s.quality : DEFAULTS.quality,
-    wStep: [0.25, 0.5].includes(Number(s.wStep)) ? Number(s.wStep) : DEFAULTS.wStep
+    wStep: Number.isFinite(Number(s.wStep))
+      ? Math.min(2, Math.max(0.25, Math.round(Number(s.wStep) * 4) / 4))
+      : DEFAULTS.wStep,
+    viewScale: Number.isFinite(Number(s.viewScale))
+      ? Math.min(2, Math.max(0.5, Number(s.viewScale)))
+      : DEFAULTS.viewScale
   };
 }
 
@@ -99,8 +105,8 @@ export function bindOptionsUI(onApply) {
   bind('opt-q-off', 'quality', () => 'off');
   bind('opt-q-low', 'quality', () => 'low');
   bind('opt-q-high', 'quality', () => 'high');
-  bind('opt-wstep-25', 'wStep', () => 0.25);
-  bind('opt-wstep-50', 'wStep', () => 0.5);
+  bind('opt-wstep', 'wStep', Number);
+  bind('opt-viewsize', 'viewScale', Number);
 
   const reset = $('opt-reset');
   if (reset) {

@@ -255,15 +255,6 @@ function createSliceViews() {
 
     .slice-view-label.left { left: 10px; }
     .slice-view-label.right { right: 10px; }
-
-    @media (max-width: 600px) {
-      #slice-views-panel {
-        top: 5px;
-        right: 5px;
-        width: 320px;
-        height: 160px;
-      }
-    }
   `;
 
   document.head.appendChild(style);
@@ -1095,6 +1086,29 @@ export function applyOptions() {
 
   if (viewsPanel) {
     viewsPanel.style.display = settings.overlay === 'views' ? '' : 'none';
+    applyViewSize();
+  }
+}
+
+// The slice views panel is a fixed pixel size scaled by viewScale.
+// Small screens get a smaller base so 2x still fits.
+function applyViewSize() {
+  const baseW = window.innerWidth <= 900 ? 320 : 440;
+  const baseH = window.innerWidth <= 900 ? 160 : 220;
+
+  const cap = Math.min(1, (window.innerWidth - 40) / (baseW * settings.viewScale));
+  const scale = settings.viewScale * cap;
+
+  const w = Math.round(baseW * scale);
+  const h = Math.round(baseH * scale);
+
+  viewsPanel.style.width = w + 'px';
+  viewsPanel.style.height = h + 'px';
+
+  // setSize stamps inline styles on the canvas, so a hidden panel
+  // (which must never be sized) would pin it to zero forever.
+  if (viewsRenderer && viewsPanel.style.display !== 'none') {
+    viewsRenderer.setSize(w, h);
   }
 }
 
@@ -1129,11 +1143,8 @@ window.addEventListener('resize', () => {
   }
 
   // Slice views canvas.
-  if (viewsRenderer && viewsCanvas) {
-    viewsRenderer.setSize(
-      viewsCanvas.clientWidth,
-      viewsCanvas.clientHeight
-    );
+  if (viewsPanel && viewsRenderer && viewsCanvas) {
+    applyViewSize();
   }
 });
 

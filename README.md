@@ -58,10 +58,10 @@ In the open world your `W` is clamped to ±4, giving nine discrete ground slices
 
 - **Look sensitivity** and **Invert Y**
 - **Field of view** (60–110)
-- **Overlay**: perception markers (drift slider tunes marker drift, 0 disables it), **slice views**, or none. Slice views show two small first-person windows: what you would see standing one slice up (`W + 1`) and one slice down (`W - 1`) from where you are. The views never change your position or what you can touch — they are pure observation.
+- **Overlay**: perception markers (drift slider tunes marker drift, 0 disables it), **slice views**, or none. Slice views show two small first-person windows: what you would see standing one slice up (`W + 1`) and one slice down (`W - 1`) from where you are. The views never change your position or what you can touch — they are pure observation. A **slice views size** slider scales the panel from 0.5× to 2×.
 - **Slice transparency fade**: on, objects fade as you approach the edge of their W interval; off, objects in your interval are fully opaque and objects outside it simply disappear.
 - **Shadow quality**: off / low / high
-- **W step**: 0.25 or 0.5 per keypress
+- **W step**: 0.25–2 along W per keypress or wheel notch (0.25 increments)
 
 Options are saved in the browser and apply live.
 

@@ -86,10 +86,8 @@
           <span id="opt-drift-value"></span>
         </label>
         <label>W STEP SIZE
-          <span class="radio-row">
-            <input id="opt-wstep-25" type="radio" name="wstep" value="0.25"><small>0.25</small>
-            <input id="opt-wstep-50" type="radio" name="wstep" value="0.5"><small>0.5</small>
-          </span>
+          <input id="opt-wstep" type="range" min="0.25" max="2" step="0.25">
+          <span id="opt-wstep-value"></span>
         </label>
         <label>INVERT Y-AXIS
           <input id="opt-inverty" type="checkbox">
@@ -103,6 +101,10 @@
         </label>
         <label>SLICE TRANSPARENCY FADE
           <input id="opt-wfade" type="checkbox">
+        </label>
+        <label>SLICE VIEWS SIZE
+          <input id="opt-viewsize" type="range" min="0.5" max="2" step="0.25">
+          <span id="opt-viewsize-value"></span>
         </label>
         <label>SHADOW QUALITY
           <span class="radio-row">
