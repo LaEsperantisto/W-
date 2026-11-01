@@ -47,6 +47,8 @@ const DROPS = {
 
 const WORLD_HALF = 64;   // x, z in [-64, 64)
 const WORLD_H = 40;      // y in [0, 40)
+const W_SLICES = 9;      // discrete W cells, w = wi - W_HOME, w in [-4, 4]
+const W_HOME = 4;        // slice index holding w = 0 (cabin slice)
 const CHUNK = 16;
 const CHUNKS = (WORLD_HALF * 2) / CHUNK; // 8 x 8
 const WATER_LEVEL = 3;
@@ -140,8 +142,15 @@ let dirtyChunks = new Set();
 const chunkGroups = [];   // THREE.Group per chunk
 let blockMaterials = null;
 
-function idx(x, y, z) {
-  return ((x + WORLD_HALF) * (WORLD_HALF * 2) + (z + WORLD_HALF)) * WORLD_H + y;
+const SZ = WORLD_HALF * 2;
+
+// A block is a 4D cell: (x, y, z) at slice wi (w value wi - W_HOME).
+function idx(x, y, z, wi) {
+  return wi * SZ * SZ * WORLD_H + ((x + WORLD_HALF) * SZ + (z + WORLD_HALF)) * WORLD_H + y;
+}
+
+function wiAt(w) {
+  return Math.max(0, Math.min(W_SLICES - 1, Math.round(w) + W_HOME));
 }
 
 function chunkOf(x, z) {
@@ -157,36 +166,44 @@ function inWorld(x, y, z) {
          y >= 0 && y < WORLD_H;
 }
 
-function get(x, y, z) {
+function get(x, y, z, wi) {
   if (y < 0) return STONE;
+  if (wi < 0 || wi >= W_SLICES) return AIR;
   if (!inWorld(x, y, z)) return AIR;
 
-  return data[idx(x, y, z)];
+  return data[idx(x, y, z, wi)];
 }
 
-function set(x, y, z, type) {
-  if (!inWorld(x, y, z) || y === 0) return;
+function set(x, y, z, wi, type) {
+  if (!inWorld(x, y, z) || y === 0 || wi < 0 || wi >= W_SLICES) return;
 
-  data[idx(x, y, z)] = type;
-  changed.set(`${x},${y},${z}`, type);
+  data[idx(x, y, z, wi)] = type;
+  changed.set(`${x},${y},${z},${wi}`, type);
 
   const [cx, cz] = chunkOf(x, z);
-  dirtyChunks.add(cx + ',' + cz);
 
-  // Faces on the chunk border also change.
-  if ((x + WORLD_HALF) % CHUNK === 0) dirtyChunks.add((cx - 1) + ',' + cz);
-  if ((x + WORLD_HALF) % CHUNK === CHUNK - 1) dirtyChunks.add((cx + 1) + ',' + cz);
-  if ((z + WORLD_HALF) % CHUNK === 0) dirtyChunks.add(cx + ',' + (cz - 1));
-  if ((z + WORLD_HALF) % CHUNK === CHUNK - 1) dirtyChunks.add(cx + ',' + (cz + 1));
+  const mark = (ax, az, aw) => {
+    if (ax >= 0 && az >= 0 && ax < CHUNKS && az < CHUNKS && aw >= 0 && aw < W_SLICES) {
+      dirtyChunks.add(ax + ',' + az + ',' + aw);
+    }
+  };
+
+  mark(cx, cz, wi);
+
+  // Faces on the chunk border and on the W borders also change.
+  if ((x + WORLD_HALF) % CHUNK === 0) mark(cx - 1, cz, wi);
+  if ((x + WORLD_HALF) % CHUNK === CHUNK - 1) mark(cx + 1, cz, wi);
+  if ((z + WORLD_HALF) % CHUNK === 0) mark(cx, cz - 1, wi);
+  if ((z + WORLD_HALF) % CHUNK === CHUNK - 1) mark(cx, cz + 1, wi);
 }
 
 function isSolid(type) {
   return type !== AIR && type !== WATER;
 }
 
-function heightAt(x, z) {
+function heightAt(x, z, wi = W_HOME) {
   for (let y = WORLD_H - 1; y >= 0; y--) {
-    const t = get(x, y, z);
+    const t = get(x, y, z, wi);
     if (isSolid(t)) return y;
   }
 
@@ -219,54 +236,84 @@ function terrainHeight(x, z) {
   return Math.max(1, Math.min(WORLD_H - 8, Math.round(h)));
 }
 
+// The home slice (w = 0) holds the ridge as terrainHeight shapes it.
+// Farther slices drift, fold, and tear open: the same (x, z) column
+// is a different column of blocks in a different W.
+function terrainHeightW(x, z, wi) {
+  const base = terrainHeight(x, z);
+  const w = wi - W_HOME;
+
+  if (w === 0) return base;
+
+  // The clearing around the cabin exists in every slice, unchanged.
+  if (Math.hypot(x, z) < 9) return base;
+
+  // Distant slices tear open into voids.
+  if (Math.abs(w) >= 2 &&
+      fbm(x * 0.02 + w * 7.3, z * 0.02 - w * 4.1, seedNum + wi * 91) < 0.16) {
+    return -1;
+  }
+
+  const amp = Math.min(6, Math.abs(w) * 1.6);
+
+  const drift = (fbm(x * 0.045 + w * 17.1, z * 0.045 - w * 9.7, seedNum + 200 + wi * 37) - 0.5) * 2 * amp;
+
+  return Math.max(0, Math.min(WORLD_H - 10, Math.round(base + drift)));
+}
+
 function generateTerrain() {
-  for (let x = -WORLD_HALF; x < WORLD_HALF; x++) {
-    for (let z = -WORLD_HALF; z < WORLD_HALF; z++) {
-      const h = terrainHeight(x, z);
-      const onFlats = Math.hypot(x + 35, z + 20) < 12;
-      const nearLake = Math.hypot(x - 28, z - 26) < 17;
+  for (let wi = 0; wi < W_SLICES; wi++) {
+    for (let x = -WORLD_HALF; x < WORLD_HALF; x++) {
+      for (let z = -WORLD_HALF; z < WORLD_HALF; z++) {
+        const h = terrainHeightW(x, z, wi);
 
-      for (let y = 0; y <= h; y++) {
-        let t;
+        if (h < 0) continue;
 
-        if (y === 0) t = STONE;
-        else if (y === h) t = (onFlats || (nearLake && h <= WATER_LEVEL + 1)) ? SAND : GRASS;
-        else if (y >= h - 3) t = DIRT;
-        else t = STONE;
+        const onFlats = Math.hypot(x + 35, z + 20) < 12;
+        const nearLake = Math.hypot(x - 28, z - 26) < 17;
 
-        // Stone outcrops poke through the soil.
-        if (y === h && !onFlats && fbm(x * 0.11 + 40, z * 0.11 - 30, seedNum + 31) > 0.72) {
-          t = STONE;
+        for (let y = 0; y <= h; y++) {
+          let t;
 
-          if (hash2(x, z, seedNum + 5) > 0.7) {
-            data[idx(x, y + 1, z)] = STONE;
+          if (y === 0) t = STONE;
+          else if (y === h) t = (onFlats || (nearLake && h <= WATER_LEVEL + 1)) ? SAND : GRASS;
+          else if (y >= h - 3) t = DIRT;
+          else t = STONE;
+
+          // Stone outcrops poke through the soil (per-slice pattern).
+          if (y === h && !onFlats && fbm(x * 0.11 + 40, z * 0.11 - 30, seedNum + 31 + wi * 13) > 0.72) {
+            t = STONE;
+
+            if (hash2(x, z, seedNum + 5 + wi * 13) > 0.7) {
+              data[idx(x, y + 1, z, wi)] = STONE;
+            }
           }
+
+          data[idx(x, y, z, wi)] = t;
         }
 
-        data[idx(x, y, z)] = t;
-      }
-
-      for (let y = h + 1; y <= WATER_LEVEL; y++) {
-        data[idx(x, y, z)] = WATER;
+        for (let y = h + 1; y <= WATER_LEVEL; y++) {
+          data[idx(x, y, z, wi)] = WATER;
+        }
       }
     }
   }
 }
 
-function generateTrees(rand) {
+function generateTrees(rand, wi) {
   for (let x = -WORLD_HALF + 3; x < WORLD_HALF - 3; x++) {
     for (let z = -WORLD_HALF + 3; z < WORLD_HALF - 3; z++) {
       if (Math.hypot(x, z) < 11) continue;
-      if (get(x, heightAt(x, z), z) !== GRASS) continue;
-      if (hash2(x, z, seedNum + 71) > 0.018) continue;
+      if (get(x, heightAt(x, z, wi), z, wi) !== GRASS) continue;
+      if (hash2(x, z, seedNum + 71 + wi * 29) > 0.018) continue;
 
-      const base = heightAt(x, z) + 1;
-      const trunk = 3 + Math.floor(hash2(x, z, seedNum + 73) * 3);
+      const base = heightAt(x, z, wi) + 1;
+      const trunk = 3 + Math.floor(hash2(x, z, seedNum + 73 + wi * 29) * 3);
 
       if (base + trunk + 2 >= WORLD_H) continue;
 
       for (let y = 0; y < trunk; y++) {
-        data[idx(x, base + y, z)] = WOOD;
+        data[idx(x, base + y, z, wi)] = WOOD;
       }
 
       const top = base + trunk;
@@ -281,9 +328,9 @@ function generateTrees(rand) {
             const x2 = x + dx, y2 = top + dy, z2 = z + dz;
 
             if (!inWorld(x2, y2, z2)) continue;
-            if (data[idx(x2, y2, z2)] !== AIR) continue;
+            if (data[idx(x2, y2, z2, wi)] !== AIR) continue;
 
-            data[idx(x2, y2, z2)] = LEAVES;
+            data[idx(x2, y2, z2, wi)] = LEAVES;
           }
         }
       }
@@ -291,12 +338,12 @@ function generateTrees(rand) {
   }
 }
 
-function placeStructure(x0, z0, cells, type) {
+function placeStructure(x0, z0, cells, type, wi = W_HOME) {
   for (const [dx, dy, dz] of cells) {
-    const x = x0 + dx, y = heightAt(x0 + dx, z0 + dz) + 1 + dy, z = z0 + dz;
+    const x = x0 + dx, y = heightAt(x0 + dx, z0 + dz, wi) + 1 + dy, z = z0 + dz;
 
     if (inWorld(x, y, z)) {
-      data[idx(x, y, z)] = type;
+      data[idx(x, y, z, wi)] = type;
     }
   }
 }
@@ -356,9 +403,9 @@ function generateCabin() {
     for (let z = -5; z <= 5; z++) {
       const h = terrainHeight(x, z);
 
-      for (let y = h + 1; y <= floorY; y++) data[idx(x, y, z)] = DIRT;
-      for (let y = floorY + 1; y <= h; y++) data[idx(x, y, z)] = AIR;
-      if (get(x, floorY, z) === GRASS) data[idx(x, floorY, z)] = GRASS;
+      for (let y = h + 1; y <= floorY; y++) data[idx(x, y, z, W_HOME)] = DIRT;
+      for (let y = floorY + 1; y <= h; y++) data[idx(x, y, z, W_HOME)] = AIR;
+      if (get(x, floorY, z, W_HOME) === GRASS) data[idx(x, floorY, z, W_HOME)] = GRASS;
     }
   }
 
@@ -386,7 +433,7 @@ function generateCabin() {
   placeStructure(0, 0, walls.concat(roof).map(([dx, y, dz]) => [dx, y - floorY - 1, dz]), PLANK);
 
   // Bed in the back corner.
-  data[idx(-1, floorY + 1, -1)] = BED;
+  data[idx(-1, floorY + 1, -1, W_HOME)] = BED;
 
   return floorY;
 }
@@ -408,25 +455,35 @@ const FACES = [
 function buildBlockMaterials() {
   if (blockMaterials) return blockMaterials;
 
-  blockMaterials = {};
+  blockMaterials = [];
 
-  for (const t of [GRASS, DIRT, STONE, SAND, WOOD, LEAVES, PLANK, BED]) {
-    blockMaterials[t] = new THREE.MeshStandardMaterial({
-      color: BLOCK_COLOR[t],
-      roughness: 0.9,
-      metalness: 0.03,
-      vertexColors: true
+  for (let wi = 0; wi < W_SLICES; wi++) {
+    const set = {};
+
+    // Neighbouring slices carry a slight hue lift so phase shifts
+    // read even without the HUD.
+    const scale = 1 + ((wi - W_HOME) / W_HOME) * 0.06;
+
+    for (const t of [GRASS, DIRT, STONE, SAND, WOOD, LEAVES, PLANK, BED]) {
+      set[t] = new THREE.MeshStandardMaterial({
+        color: new THREE.Color(BLOCK_COLOR[t]).multiplyScalar(scale),
+        roughness: 0.9,
+        metalness: 0.03,
+        vertexColors: true
+      });
+    }
+
+    set[WATER] = new THREE.MeshStandardMaterial({
+      color: new THREE.Color(BLOCK_COLOR[WATER]).multiplyScalar(scale),
+      roughness: 0.4,
+      metalness: 0.1,
+      transparent: true,
+      opacity: 0.55,
+      depthWrite: false
     });
-  }
 
-  blockMaterials[WATER] = new THREE.MeshStandardMaterial({
-    color: BLOCK_COLOR[WATER],
-    roughness: 0.4,
-    metalness: 0.1,
-    transparent: true,
-    opacity: 0.55,
-    depthWrite: false
-  });
+    blockMaterials.push(set);
+  }
 
   return blockMaterials;
 }
@@ -438,8 +495,12 @@ function faceShade(x, y, z, face) {
   return jitter * lambert;
 }
 
-function buildChunk(cx, cz) {
-  const old = chunkGroups[cx * CHUNKS + cz];
+function gi(cx, cz, wi) {
+  return (cx * CHUNKS + cz) * W_SLICES + wi;
+}
+
+function buildChunk(cx, cz, wi) {
+  const old = chunkGroups[gi(cx, cz, wi)];
 
   if (old) {
     scene.remove(old);
@@ -477,12 +538,12 @@ function buildChunk(cx, cz) {
   for (let x = x0; x < x0 + CHUNK; x++) {
     for (let z = z0; z < z0 + CHUNK; z++) {
       for (let y = 0; y < WORLD_H; y++) {
-        const t = get(x, y, z);
+        const t = get(x, y, z, wi);
 
         if (t === AIR) continue;
 
         for (const f of FACES) {
-          const nb = get(x + f.n[0], y + f.n[1], z + f.n[2]);
+          const nb = get(x + f.n[0], y + f.n[1], z + f.n[2], wi);
 
           // Water hides faces against other water; solid faces
           // against water are kept so the lakebed reads clearly.
@@ -501,11 +562,13 @@ function buildChunk(cx, cz) {
     geo.setAttribute('color', new THREE.Float32BufferAttribute(b.color, 3));
     geo.setIndex(b.ind);
 
-    const mesh = new THREE.Mesh(geo, buildBlockMaterials()[Number(typeStr)]);
+    const mesh = new THREE.Mesh(geo, buildBlockMaterials()[wi][Number(typeStr)]);
 
     mesh.castShadow = Number(typeStr) !== WATER;
     mesh.receiveShadow = true;
     mesh.userData.voxelChunk = true;
+    mesh.userData.voxelW = wi;
+    mesh.userData.voxelType = Number(typeStr);
 
     if (Number(typeStr) === WATER) {
       mesh.renderOrder = 1;
@@ -514,7 +577,7 @@ function buildChunk(cx, cz) {
     group.add(mesh);
   }
 
-  chunkGroups[cx * CHUNKS + cz] = group;
+  chunkGroups[gi(cx, cz, wi)] = group;
   scene.add(group);
 }
 
@@ -524,14 +587,82 @@ function rebuildDirtyChunks() {
   for (const key of dirtyChunks) {
     if (budget <= 0) break;
 
-    const [cx, cz] = key.split(',').map(Number);
+    const [cx, cz, wi] = key.split(',').map(Number);
 
     dirtyChunks.delete(key);
 
-    if (cx < 0 || cz < 0 || cx >= CHUNKS || cz >= CHUNKS) continue;
+    if (cx < 0 || cz < 0 || cx >= CHUNKS || cz >= CHUNKS || wi < 0 || wi >= W_SLICES) continue;
 
-    buildChunk(cx, cz);
+    buildChunk(cx, cz, wi);
     budget--;
+  }
+}
+
+// Only the slice the player stands in renders solid; adjacent
+// slices hang around as ghost overlays so W-phasing is visible.
+const WATER_OPACITY = 0.55;
+let sliceMode = null;
+
+function updateSliceVisibility() {
+  const materials = buildBlockMaterials();
+  const d = [];
+  let nearest = W_HOME;
+  let best = Infinity;
+
+  for (let wi = 0; wi < W_SLICES; wi++) {
+    d.push(Math.abs(player.w - (wi - W_HOME)));
+
+    // On an exact tie prefer the higher slice, matching wiAt().
+    if (d[wi] <= best) { best = d[wi]; nearest = wi; }
+  }
+
+  const mode = [];
+
+  for (let wi = 0; wi < W_SLICES; wi++) {
+    mode.push(wi === nearest ? 'solid' : d[wi] <= 0.75 ? 'ghost' : 'off');
+  }
+
+  if (sliceMode && sliceMode.join() === mode.join()) return;
+
+  sliceMode = mode;
+
+  for (let wi = 0; wi < W_SLICES; wi++) {
+    const m = mode[wi];
+    const opacity = m === 'ghost' ? 0.3 : null;
+
+    for (let cx = 0; cx < CHUNKS; cx++) {
+      for (let cz = 0; cz < CHUNKS; cz++) {
+        const g = chunkGroups[gi(cx, cz, wi)];
+
+        if (!g) continue;
+
+        g.visible = m !== 'off';
+
+        if (m === 'off') continue;
+
+        for (const mesh of g.children) {
+          const mat = mesh.material;
+          const isWater = mat === materials[wi][WATER];
+
+          if (opacity === null) {
+            if (isWater) {
+              mat.opacity = WATER_OPACITY;
+              mat.depthWrite = false;
+            } else {
+              mat.opacity = 1;
+              mat.transparent = false;
+              mat.depthWrite = true;
+            }
+          } else {
+            mat.transparent = true;
+            mat.opacity = isWater ? 0.2 : opacity;
+            mat.depthWrite = false;
+          }
+
+          mesh.castShadow = m === 'solid' && !isWater;
+        }
+      }
+    }
   }
 }
 
@@ -554,6 +685,8 @@ function disposeChunks() {
 // ------------------------------------------------------------
 
 function voxelCollides(x, y, z) {
+  const wi = wiAt(player.w);
+
   const minX = Math.floor(x - PLAYER_RADIUS);
   const maxX = Math.floor(x + PLAYER_RADIUS);
   const minY = Math.floor(y);
@@ -570,7 +703,7 @@ function voxelCollides(x, y, z) {
           return true;
         }
 
-        if (isSolid(get(bx, by, bz))) return true;
+        if (isSolid(get(bx, by, bz, wi))) return true;
       }
     }
   }
@@ -591,9 +724,10 @@ function storageKey() {
 
 function saveWorld() {
   const payload = {
+    v: 2,
     changes: [...changed.entries()].map(([k, t]) => {
-      const [x, y, z] = k.split(',').map(Number);
-      return [x, y, z, t];
+      const [x, y, z, wi] = k.split(',').map(Number);
+      return [x, y, z, wi, t];
     }),
     artifacts: artifactState.map(a => (a.collected ? a.id : -1)).filter(v => v >= 0),
     respawn: [customSpawn[0], customSpawn[1], customSpawn[2], customSpawn[3]]
@@ -629,10 +763,16 @@ function loadSavedChanges() {
     return;
   }
 
-  for (const [x, y, z, t] of saved.changes ?? []) {
-    if (inWorld(x, y, z) && y !== 0) {
-      data[idx(x, y, z)] = t;
-      changed.set(`${x},${y},${z}`, t);
+  for (const entry of saved.changes ?? []) {
+    // v2 entries are [x, y, z, wi, type]; legacy v1 entries are
+    // [x, y, z, type] and belonged to the home slice.
+    const [x, y, z, a, b] = entry;
+    const wi = saved.v === 2 ? a : W_HOME;
+    const t = saved.v === 2 ? b : a;
+
+    if (inWorld(x, y, z) && y !== 0 && wi >= 0 && wi < W_SLICES) {
+      data[idx(x, y, z, wi)] = t;
+      changed.set(`${x},${y},${z},${wi}`, t);
     }
   }
 
@@ -767,16 +907,21 @@ function rayVoxel() {
     if (g) meshes.push(...g.children);
   }
 
-  const hits = raycaster.intersectObjects(meshes, false);
+  // Raycasting ignores visibility, so filter to the slice we stand
+  // in: ghost and far slices stay out of reach.
+  const wantWi = wiAt(player.w);
+  const hits = raycaster.intersectObjects(meshes, false)
+    .filter(h => h.object.userData.voxelW === wantWi);
 
   if (!hits.length) return null;
 
   const hit = hits[0];
   const n = hit.face.normal;
   const p = hit.point;
+  const wi = wantWi;
 
   // The voxel actually hit, and the empty cell in front of its face
-  // (the placement target).
+  // (the placement target). Both live in the hit block's W slice.
   const sx = Math.floor(p.x - n.x * 0.5);
   const sy = Math.floor(p.y - n.y * 0.5);
   const sz = Math.floor(p.z - n.z * 0.5);
@@ -785,7 +930,7 @@ function rayVoxel() {
   const ay = Math.floor(p.y + n.y * 0.5);
   const az = Math.floor(p.z + n.z * 0.5);
 
-  return { x: ax, y: ay, z: az, solid: { x: sx, y: sy, z: sz } };
+  return { x: ax, y: ay, z: az, wi, solid: { x: sx, y: sy, z: sz, wi } };
 }
 
 function tryMine(dt) {
@@ -800,18 +945,18 @@ function tryMine(dt) {
   const target = rayVoxel();
   const v = target && target.solid;
 
-  if (!v || !isSolid(get(v.x, v.y, v.z)) ||
-      v.y === 0 || get(v.x, v.y, v.z) === BED) {
+  if (!v || !isSolid(get(v.x, v.y, v.z, v.wi)) ||
+      v.y === 0 || get(v.x, v.y, v.z, v.wi) === BED) {
     mining = null;
     if (bar) bar.style.width = '0';
     return;
   }
 
-  if (!mining || mining.x !== v.x || mining.y !== v.y || mining.z !== v.z) {
-    mining = { x: v.x, y: v.y, z: v.z, progress: 0 };
+  if (!mining || mining.x !== v.x || mining.y !== v.y || mining.z !== v.z || mining.wi !== v.wi) {
+    mining = { x: v.x, y: v.y, z: v.z, wi: v.wi, progress: 0 };
   }
 
-  const t = get(mining.x, mining.y, mining.z);
+  const t = get(mining.x, mining.y, mining.z, mining.wi);
 
   mining.progress += dt / (HARDNESS[t] ?? 1);
 
@@ -820,7 +965,7 @@ function tryMine(dt) {
   if (mining.progress >= 1) {
     const drop = DROPS[t];
 
-    set(mining.x, mining.y, mining.z, AIR);
+    set(mining.x, mining.y, mining.z, mining.wi, AIR);
 
     if (drop !== undefined) {
       inventory[drop] = (inventory[drop] || 0) + 1;
@@ -833,7 +978,9 @@ function tryMine(dt) {
   }
 }
 
-function overlapsPlayer(x, y, z) {
+function overlapsPlayer(x, y, z, wi) {
+  if (Math.abs(player.w - (wi - W_HOME)) >= 0.6) return false;
+
   return (
     x + 1 > player.x - PLAYER_RADIUS &&
     x < player.x + PLAYER_RADIUS &&
@@ -853,16 +1000,16 @@ function tryPlace() {
 
   if (!target) return;
 
-  const t = get(target.x, target.y, target.z);
+  const t = get(target.x, target.y, target.z, target.wi);
 
   if (t !== AIR && t !== WATER) return;
-  if (overlapsPlayer(target.x, target.y, target.z)) return;
+  if (overlapsPlayer(target.x, target.y, target.z, target.wi)) return;
 
   const type = HOTBAR_TYPES[selected];
 
   if ((inventory[type] || 0) <= 0) return;
 
-  set(target.x, target.y, target.z, type);
+  set(target.x, target.y, target.z, target.wi, type);
 
   inventory[type]--;
   renderHotbar();
@@ -877,6 +1024,7 @@ let wraiths = [];
 let playerHP = 100;
 let lastHitAt = 0;
 let worldClock = 0;
+let lastSafeW = null;
 
 function wraithMesh() {
   const geo = new THREE.BoxGeometry(0.8, 1.7, 0.8);
@@ -908,11 +1056,13 @@ function spawnWraith(rand) {
 
   if (Math.abs(x) >= WORLD_HALF - 3 || Math.abs(z) >= WORLD_HALF - 3) return;
 
+  const w = -3 + rand() * 6;
+
   wraiths.push({
     mesh: wraithMesh(),
     x, z,
-    y: heightAt(Math.round(x), Math.round(z)) + 1.9,
-    w: -3 + rand() * 6,
+    y: heightAt(Math.round(x), Math.round(z), wiAt(w)) + 1.9,
+    w,
     wPhase: rand() * Math.PI * 2,
     hp: 4,
     hitCooldown: 0,
@@ -963,7 +1113,7 @@ function updateWraiths(dt) {
       e.z += (dz / dist) * speed;
     }
 
-    const ground = heightAt(Math.round(e.x), Math.round(e.z));
+    const ground = heightAt(Math.round(e.x), Math.round(e.z), wiAt(e.w));
 
     e.y += ((ground + 1.9 + Math.sin(worldClock * 2 + e.wPhase) * 0.15) - e.y) * Math.min(1, dt * 4);
 
@@ -1068,8 +1218,8 @@ function generateArtifacts(rand, blurbs) {
       tries++;
     } while (Math.hypot(x, z) < 14 && tries < 20);
 
-    const y = heightAt(x, z) + 1.4;
     const w = wChoices[i];
+    const y = heightAt(x, z, wiAt(w)) + 1.4;
 
     const geo = new THREE.BoxGeometry(0.5, 0.5, 0.5);
     const mesh = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({
@@ -1230,6 +1380,8 @@ const TUTORIAL = [
   'Click to capture the mouse. WASD to walk, SHIFT to run, SPACE to jump.',
   'SCROLL the wheel or press E / Q to shift along W. The corner map shows the slices above and below.',
   'HOLD LEFT-CLICK on a block to mine it. RIGHT-CLICK places a block. Keys 1–5 pick the block.',
+  'Every block lives in a W slice. You can only mine the slice you stand in — the faint blocks you see beside you are the next slices, out of reach.',
+  'Terrain folds with W. E / Q phases you into a neighbour slice: the same hill may be taller, gone, or torn open into a void. Watch the corner map.',
   'Wraiths exist only in certain W slices. Shift W to face them — or to slip away.',
   'Fourteen artifacts are scattered across the slices. Some hang in W you must shift into.',
   'Press F beside the cabin bed to anchor where you wake.'
@@ -1310,6 +1462,28 @@ document.addEventListener('keydown', e => {
 function worldFrame(dt) {
   worldClock += dt;
 
+  // Phasing into a neighbouring slice can shove the player into
+  // that slice's rock: lift them out, or undo the shift.
+  if (voxelCollides(player.x, player.y, player.z)) {
+    let freed = false;
+
+    for (let up = 0.05; up <= 2; up += 0.05) {
+      if (!voxelCollides(player.x, player.y + up, player.z)) {
+        player.y += up;
+        freed = true;
+        break;
+      }
+    }
+
+    if (!freed && lastSafeW !== null && lastSafeW !== player.w) {
+      player.w = lastSafeW;
+      engine.updateSlice();
+    }
+  } else {
+    lastSafeW = player.w;
+  }
+
+  updateSliceVisibility();
   rebuildDirtyChunks();
   tryMine(dt);
   tryPlace();
@@ -1354,6 +1528,10 @@ export function _debug() {
     collected: artifactState.filter(a => a.collected).length,
     artifacts: artifactState.length,
     changed: changed.size,
+    changedPairs: [...changed.entries()].slice(0, 6).map(([k, t]) => `${k}=${t}`),
+    mining: mining ? { ...mining } : null,
+    mineHeld,
+    placeQueued,
     hp: playerHP,
     spawn: customSpawn,
     bed: bedPos,
@@ -1393,10 +1571,14 @@ export function enterWorld(seed) {
     hpFill.style.background = '#8cf0d0';
   }
 
-  data = new Uint8Array(WORLD_HALF * 2 * WORLD_HALF * 2 * WORLD_H);
+  data = new Uint8Array(W_SLICES * SZ * SZ * WORLD_H);
 
   generateTerrain();
-  generateTrees(rand);
+
+  for (let wi = 0; wi < W_SLICES; wi++) {
+    generateTrees(rand, wi);
+  }
+
   generateLandmarks();
 
   const floorY = generateCabin();
@@ -1404,23 +1586,21 @@ export function enterWorld(seed) {
   customSpawn = [0.5, floorY + 1.05, 5, 0];
   bedPos = [-1, floorY + 1, -1];
 
-  for (const l of LANDMARKS) {
-    for (let x = l.x - 3; x <= l.x + 3; x++) {
-      for (let z = l.z - 3; z <= l.z + 3; z++) {
-        const [cx, cz] = chunkOf(x, z);
-
-        if (cx >= 0 && cz >= 0) dirtyChunks.add(cx + ',' + cz);
-      }
-    }
-  }
+  engine.setWLimit(4);
+  lastSafeW = null;
+  sliceMode = null;
 
   loadSavedChanges();
 
   for (let cx = 0; cx < CHUNKS; cx++) {
     for (let cz = 0; cz < CHUNKS; cz++) {
-      buildChunk(cx, cz);
+      for (let wi = 0; wi < W_SLICES; wi++) {
+        buildChunk(cx, cz, wi);
+      }
     }
   }
+
+  updateSliceVisibility();
 
   const spawn = [customSpawn[0], customSpawn[1], customSpawn[2], customSpawn[3] ?? 0];
 
@@ -1494,6 +1674,7 @@ export function exitWorld() {
 
   setCollider(null);
   setFrameHandler(null);
+  engine.setWLimit(engine.W_LIMIT);
 
   for (const e of wraiths) {
     scene.remove(e.mesh);

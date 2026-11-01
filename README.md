@@ -6,7 +6,7 @@ The title screen offers three modes:
 
 - **Levels** — the twelve hand-built puzzle rooms, completed in order or picked from the list.
 - **Story — The Long Way Home** — a six-chapter campaign with interludes and an epilogue. Your place in the campaign is saved, so returning to Story mode resumes where you left off.
-- **Open World** — a seeded, procedurally generated voxel world you can mine and build in. Everything you dig or place is stored per seed, so the same seed gives you the same world, kept the way you left it. Find the fourteen artifacts (some hide in other W slices), watch out for wraiths that phase through W, sleep in the cabin bed to move your spawn, and fall out of the world and you wake up there. Type any seed to get a different world.
+- **Open World** — a seeded, procedurally generated voxel world you can mine and build in. The terrain is genuinely four-dimensional: as you move along `w` the landscape folds into different worlds. Within ±4 of the origin there are nine whole slices of ground, each with its own hills, lakes and trees, and far slices can simply have no ground at all — the void where another world's floor should be. Everything you dig or place is stored per seed (and per slice), so the same seed gives you the same world, kept the way you left it. Find the fourteen artifacts (some hide in other W slices), watch out for wraiths that phase through W, sleep in the cabin bed to move your spawn, and fall out of the world and you wake up there. Type any seed to get a different world.
 
 The pause menu (Esc) also has an **Options** button, reachable from the title screen too.
 
@@ -52,6 +52,8 @@ All of the above, plus:
 - `R`: respawn at your bed/spawn
 - The perception overlay marks nearby wraiths and artifacts; artifacts you can currently see glow at their height along W.
 
+In the open world your `W` is clamped to ±4, giving nine discrete ground slices. The slice you stand on is fully solid; the nearest neighbouring slice shows through as translucent ghost terrain you can see but not touch, mine, or stand on. Mining and placing always act on the slice you currently occupy, and each change is remembered with its `w`, so a hole dug at `w = 2` doesn't leak into the slice at `w = 0`.
+
 ## Options
 
 - **Look sensitivity** and **Invert Y**
@@ -70,7 +72,7 @@ Every level object is a 3D box with an additional `w` coordinate and a `w_size` 
 abs(player.w - object.w) < object.w_size / 2
 ```
 
-Objects outside the current slice disappear. Objects fade as you approach the edge of their W interval. Collision is only enabled for visible solid objects.
+Objects outside the current slice disappear. Objects fade as you approach the edge of their W interval. Collision is only enabled for visible solid objects. When the player respawns — after a wraith kill or `R` — everything is re-evaluated against the new W coordinate, so the slice you wake up in is instantly the one you see.
 
 This is a deliberately simple model: the player is a 3D viewpoint moving through slices of a 4D arrangement. It is not a physically complete simulation of a four-dimensional organism.
 

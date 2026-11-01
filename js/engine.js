@@ -208,6 +208,18 @@ export const player = {
 
 export const W_LIMIT = 8;
 
+let wLimit = 8;
+
+// Open World tightens the W range; levels use the full ±8.
+export function setWLimit(limit) {
+  wLimit = Math.max(0, Math.min(W_LIMIT, limit));
+
+  if (Math.abs(player.w) > wLimit) {
+    player.w = Math.max(-wLimit, Math.min(wLimit, player.w));
+    updateSlice();
+  }
+}
+
 export const PLAYER_RADIUS = 0.32;
 export const PLAYER_HEIGHT = 1.7;
 
@@ -617,9 +629,9 @@ export function updateSlice() {
 
 export function changeW(amount) {
   const next = Math.max(
-    -W_LIMIT,
+    -wLimit,
     Math.min(
-      W_LIMIT,
+      wLimit,
       Math.round((player.w + amount) * 100) / 100
     )
   );
@@ -850,6 +862,11 @@ export function respawnTo([x, y, z, w = 0]) {
 
   player.vy = 0;
   player.onGround = false;
+
+  // Respawn can land the player in a different W slice: the main
+  // view's hyperbox fades and the HUD must follow immediately.
+  updateSlice();
+  updatePos();
 }
 
 // ============================================================
