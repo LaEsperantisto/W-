@@ -146,7 +146,7 @@ function createPerceptionView() {
 
 function renderPerceptionView() {
   if (!perceptionRenderer || !perceptionCamera) return;
-  if (!settings.showPerception) return;
+  if (settings.overlay !== 'perception') return;
 
   // Position the camera in WXZ coordinates; pitch drifts the
   // vertical (W) position so looking around reveals the slices.
@@ -187,6 +187,164 @@ function renderPerceptionView() {
     perceptionScene,
     perceptionCamera
   );
+}
+
+// ============================================================
+// SLICE VIEWS OVERLAY
+// ============================================================
+
+// Two small first-person views of what the player would see if
+// they stood at player.w + 1 and player.w - 1.
+
+let viewsRenderer = null;
+let viewsCanvas = null;
+let viewsPanel = null;
+let viewCamera = null;
+
+// Modes provide their own per-slice visibility switch: fn(wv)
+// applies the view and returns a restore function.
+// Null uses the level hyperboxes.
+let sliceViewFilter = null;
+
+export function setSliceViewFilter(fn) {
+  sliceViewFilter = fn;
+}
+
+function createSliceViews() {
+  const panel = document.createElement('div');
+
+  panel.id = 'slice-views-panel';
+  panel.innerHTML = `
+    <canvas id="slice-views-canvas"></canvas>
+    <span class="slice-view-label left">W + 1</span>
+    <span class="slice-view-label right">W - 1</span>
+  `;
+
+  document.body.appendChild(panel);
+  viewsPanel = panel;
+
+  const style = document.createElement('style');
+
+  style.textContent = `
+    #slice-views-panel {
+      position: fixed;
+      top: 12px;
+      right: 12px;
+      width: 440px;
+      height: 220px;
+      z-index: 1000;
+      pointer-events: none;
+      background: transparent;
+    }
+
+    #slice-views-canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+      background: transparent;
+    }
+
+    .slice-view-label {
+      position: absolute;
+      top: 6px;
+      font: 600 11px/1 system-ui, sans-serif;
+      letter-spacing: 0.08em;
+      color: #9fc7ff;
+      text-shadow: 0 1px 2px #000;
+    }
+
+    .slice-view-label.left { left: 10px; }
+    .slice-view-label.right { right: 10px; }
+
+    @media (max-width: 600px) {
+      #slice-views-panel {
+        top: 5px;
+        right: 5px;
+        width: 320px;
+        height: 160px;
+      }
+    }
+  `;
+
+  document.head.appendChild(style);
+
+  viewsCanvas = $('slice-views-canvas');
+
+  viewsRenderer = new THREE.WebGLRenderer({
+    canvas: viewsCanvas,
+    antialias: true,
+    alpha: true
+  });
+
+  viewsRenderer.setPixelRatio(
+    Math.min(window.devicePixelRatio, 2)
+  );
+
+  viewsRenderer.setSize(
+    viewsCanvas.clientWidth,
+    viewsCanvas.clientHeight
+  );
+
+  viewsRenderer.setClearColor(0x000000, 0);
+  viewsRenderer.setScissorTest(true);
+
+  viewCamera = new THREE.PerspectiveCamera(settings.fov, 1, 0.1, 300);
+  viewCamera.rotation.order = 'YXZ';
+}
+
+// Default: hyperboxes whose W interval contains wv.
+function levelSliceView(wv) {
+  const saved = [];
+
+  for (const item of objects) {
+    saved.push(item.mesh, item.mesh.visible);
+
+    item.mesh.visible = Math.abs(wv - item.pos4[3]) <= item.size4[3] / 2;
+  }
+
+  return () => {
+    for (let i = 0; i < saved.length; i += 2) {
+      saved[i].visible = saved[i + 1];
+    }
+  };
+}
+
+function renderSliceViews() {
+  if (!viewsRenderer || !viewCamera) return;
+  if (settings.overlay !== 'views') return;
+
+  const filter = sliceViewFilter || levelSliceView;
+  const half = Math.round(viewsCanvas.clientWidth / 2);
+  const h = viewsCanvas.clientHeight;
+
+  // First-person vantage: the same eye and look direction as the
+  // main camera, one slice up and one slice down along W.
+  viewCamera.fov = settings.fov;
+  viewCamera.aspect = half / h;
+  viewCamera.updateProjectionMatrix();
+
+  for (let i = 0; i < 2; i++) {
+    const wv = player.w + (i === 0 ? 1 : -1);
+    const x = i === 0 ? 0 : half;
+
+    // The filter mutates scene visibility; the restore MUST run
+    // even if the render throws, or the main view would keep the
+    // view's slice and the player would "see" the wrong slice.
+    let restore = null;
+
+    try {
+      restore = filter(wv);
+
+      viewCamera.position.set(player.x, player.y + 1.55, player.z);
+      viewCamera.rotation.set(player.pitch, player.yaw, 0);
+
+      viewsRenderer.setViewport(x, 0, half, h);
+      viewsRenderer.setScissor(x, 0, half, h);
+      viewsRenderer.render(scene, viewCamera);
+    } finally {
+      if (restore) restore();
+    }
+  }
 }
 
 // ============================================================
@@ -509,7 +667,8 @@ function addHyperBox(rawSpec, isGoal = false) {
     pos4: spec.pos,
     size4: spec.size,
     solid: spec.solid,
-    isGoal
+    isGoal,
+    baseTransparent: mat.transparent
   };
 
   objects.push(item);
@@ -612,10 +771,24 @@ export function updateSlice() {
     if (distanceW <= halfW) {
       item.mesh.visible = true;
 
-      if (item.mesh.material.transparent) {
+      const mat = item.mesh.material;
+
+      if (!settings.wFade) {
+        // No distance fade: fully inside means fully opaque.
+        if (mat.transparent || mat.opacity !== 1) {
+          mat.transparent = false;
+          mat.opacity = 1;
+          mat.needsUpdate = true;
+        }
+      } else if (item.baseTransparent) {
+        if (!mat.transparent) {
+          mat.transparent = true;
+          mat.needsUpdate = true;
+        }
+
         const factor = 1 - (distanceW / (halfW + 0.001));
 
-        item.mesh.material.opacity = Math.max(0.2, factor);
+        mat.opacity = Math.max(0.2, factor);
       }
     } else {
       item.mesh.visible = false;
@@ -890,6 +1063,7 @@ function animate(t) {
 
   // Independent WXZ view.
   renderPerceptionView();
+  renderSliceViews();
 }
 
 // ============================================================
@@ -916,7 +1090,11 @@ export function applyOptions() {
   }
 
   if (perceptionPanel) {
-    perceptionPanel.style.display = settings.showPerception ? '' : 'none';
+    perceptionPanel.style.display = settings.overlay === 'perception' ? '' : 'none';
+  }
+
+  if (viewsPanel) {
+    viewsPanel.style.display = settings.overlay === 'views' ? '' : 'none';
   }
 }
 
@@ -949,6 +1127,14 @@ window.addEventListener('resize', () => {
 
     perceptionCamera.up.set(0, 1, 0);
   }
+
+  // Slice views canvas.
+  if (viewsRenderer && viewsCanvas) {
+    viewsRenderer.setSize(
+      viewsCanvas.clientWidth,
+      viewsCanvas.clientHeight
+    );
+  }
 });
 
 // ============================================================
@@ -956,6 +1142,7 @@ window.addEventListener('resize', () => {
 // ============================================================
 
 createPerceptionView();
+createSliceViews();
 applyOptions();
 
 requestAnimationFrame(animate);

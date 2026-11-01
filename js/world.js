@@ -603,6 +603,51 @@ function rebuildDirtyChunks() {
 const WATER_OPACITY = 0.55;
 let sliceMode = null;
 
+// Slice views (options overlay): make exactly one W slice opaque,
+// hiding every other chunk group, for a single view render. The
+// pass restores all state, so gameplay and physics are untouched.
+function applySliceView(wv) {
+  const wi = wiAt(wv);
+  const saved = [];
+  const mats = [];
+  const materials = buildBlockMaterials();
+
+  for (let sliceWi = 0; sliceWi < W_SLICES; sliceWi++) {
+    for (let cx = 0; cx < CHUNKS; cx++) {
+      for (let cz = 0; cz < CHUNKS; cz++) {
+        const g = chunkGroups[gi(cx, cz, sliceWi)];
+
+        if (!g) continue;
+
+        saved.push(g, g.visible);
+        g.visible = sliceWi === wi;
+      }
+    }
+  }
+
+  // The slice may have been sitting in ghost transparency.
+  for (const mat of Object.values(materials[wi])) {
+    if (!mat) continue;
+
+    mats.push([mat, mat.opacity, mat.transparent, mat.depthWrite]);
+    mat.opacity = 1;
+    mat.transparent = false;
+    mat.depthWrite = true;
+  }
+
+  return () => {
+    for (let i = 0; i < saved.length; i += 2) {
+      saved[i].visible = saved[i + 1];
+    }
+
+    for (const [mat, opacity, transparent, depthWrite] of mats) {
+      mat.opacity = opacity;
+      mat.transparent = transparent;
+      mat.depthWrite = depthWrite;
+    }
+  };
+}
+
 function updateSliceVisibility() {
   const materials = buildBlockMaterials();
   const d = [];
@@ -1100,6 +1145,16 @@ function updateWraiths(dt) {
       e.perceptionMesh.position.set(e.x, e.w, e.z);
     }
 
+    // Wraiths hunt along W too: they slowly phase toward the
+    // slice the player stands in, so shifting W only buys time.
+    const dw = player.w - e.w;
+
+    if (dw !== 0) {
+      const wStep = Math.min(Math.abs(dw), 0.6 * dt);
+
+      e.w += dw > 0 ? wStep : -wStep;
+    }
+
     if (!vis) continue;
 
     const dx = player.x - e.x;
@@ -1116,8 +1171,6 @@ function updateWraiths(dt) {
     const ground = heightAt(Math.round(e.x), Math.round(e.z), wiAt(e.w));
 
     e.y += ((ground + 1.9 + Math.sin(worldClock * 2 + e.wPhase) * 0.15) - e.y) * Math.min(1, dt * 4);
-
-    e.w += Math.sin(worldClock * 0.23 + e.wPhase) * 0.4 * dt;
 
     const sliceFade = 1 - Math.abs(player.w - e.w) / 0.9;
 
@@ -1382,7 +1435,7 @@ const TUTORIAL = [
   'HOLD LEFT-CLICK on a block to mine it. RIGHT-CLICK places a block. Keys 1–5 pick the block.',
   'Every block lives in a W slice. You can only mine the slice you stand in — the faint blocks you see beside you are the next slices, out of reach.',
   'Terrain folds with W. E / Q phases you into a neighbour slice: the same hill may be taller, gone, or torn open into a void. Watch the corner map.',
-  'Wraiths exist only in certain W slices. Shift W to face them — or to slip away.',
+  'Wraiths hunt along W, slowly phasing toward your slice. Shifting W buys time, not escape.',
   'Fourteen artifacts are scattered across the slices. Some hang in W you must shift into.',
   'Press F beside the cabin bed to anchor where you wake.'
 ];
@@ -1656,6 +1709,7 @@ export function enterWorld(seed) {
 
   setCollider(voxelCollides);
   setFrameHandler(worldFrame);
+  engine.setSliceViewFilter(applySliceView);
 
   if ($('hud')) $('hud').classList.remove('hidden');
   hudEl.classList.remove('hidden');
@@ -1674,6 +1728,7 @@ export function exitWorld() {
 
   setCollider(null);
   setFrameHandler(null);
+  engine.setSliceViewFilter(null);
   engine.setWLimit(engine.W_LIMIT);
 
   for (const e of wraiths) {

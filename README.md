@@ -6,7 +6,7 @@ The title screen offers three modes:
 
 - **Levels** — the twelve hand-built puzzle rooms, completed in order or picked from the list.
 - **Story — The Long Way Home** — a six-chapter campaign with interludes and an epilogue. Your place in the campaign is saved, so returning to Story mode resumes where you left off.
-- **Open World** — a seeded, procedurally generated voxel world you can mine and build in. The terrain is genuinely four-dimensional: as you move along `w` the landscape folds into different worlds. Within ±4 of the origin there are nine whole slices of ground, each with its own hills, lakes and trees, and far slices can simply have no ground at all — the void where another world's floor should be. Everything you dig or place is stored per seed (and per slice), so the same seed gives you the same world, kept the way you left it. Find the fourteen artifacts (some hide in other W slices), watch out for wraiths that phase through W, sleep in the cabin bed to move your spawn, and fall out of the world and you wake up there. Type any seed to get a different world.
+- **Open World** — a seeded, procedurally generated voxel world you can mine and build in. The terrain is genuinely four-dimensional: as you move along `w` the landscape folds into different worlds. Within ±4 of the origin there are nine whole slices of ground, each with its own hills, lakes and trees, and far slices can simply have no ground at all — the void where another world's floor should be. Everything you dig or place is stored per seed (and per slice), so the same seed gives you the same world, kept the way you left it. Find the fourteen artifacts (some hide in other W slices), watch out for wraiths that hunt along W toward your slice, sleep in the cabin bed to move your spawn, and fall out of the world and you wake up there. Type any seed to get a different world.
 
 The pause menu (Esc) also has an **Options** button, reachable from the title screen too.
 
@@ -58,7 +58,8 @@ In the open world your `W` is clamped to ±4, giving nine discrete ground slices
 
 - **Look sensitivity** and **Invert Y**
 - **Field of view** (60–110)
-- **Perception overlay** on/off, and a **drift** slider (0 disables marker drift)
+- **Overlay**: perception markers (drift slider tunes marker drift, 0 disables it), **slice views**, or none. Slice views show two small first-person windows: what you would see standing one slice up (`W + 1`) and one slice down (`W - 1`) from where you are. The views never change your position or what you can touch — they are pure observation.
+- **Slice transparency fade**: on, objects fade as you approach the edge of their W interval; off, objects in your interval are fully opaque and objects outside it simply disappear.
 - **Shadow quality**: off / low / high
 - **W step**: 0.25 or 0.5 per keypress
 
@@ -72,7 +73,7 @@ Every level object is a 3D box with an additional `w` coordinate and a `w_size` 
 abs(player.w - object.w) < object.w_size / 2
 ```
 
-Objects outside the current slice disappear. Objects fade as you approach the edge of their W interval. Collision is only enabled for visible solid objects. When the player respawns — after a wraith kill or `R` — everything is re-evaluated against the new W coordinate, so the slice you wake up in is instantly the one you see.
+Objects outside the current slice disappear. Objects fade as you approach the edge of their W interval, unless the **Slice transparency fade** option is off, in which case objects inside your interval are fully opaque. The **slice views** overlay renders what would exist at `W ± 1` by temporarily switching the scene to exactly that slice and restoring it immediately after each render pass — it never changes your position, collision, or what you can interact with. Collision is only enabled for visible solid objects. When the player respawns — after a wraith kill or `R` — everything is re-evaluated against the new W coordinate, so the slice you wake up in is instantly the one you see.
 
 This is a deliberately simple model: the player is a 3D viewpoint moving through slices of a 4D arrangement. It is not a physically complete simulation of a four-dimensional organism.
 

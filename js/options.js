@@ -6,8 +6,9 @@ export const DEFAULTS = {
   sensitivity: 1,
   invertY: false,
   fov: 75,
-  showPerception: true,
+  overlay: 'perception', // 'perception' | 'views' | 'off'
   perceptionDrift: 3,
+  wFade: true,
   quality: 'high', // 'off' | 'low' | 'high'
   wStep: 0.25
 };
@@ -17,10 +18,11 @@ function clampSettings(s) {
     sensitivity: Math.min(3, Math.max(0.1, Number(s.sensitivity) || DEFAULTS.sensitivity)),
     invertY: !!s.invertY,
     fov: Math.min(110, Math.max(60, Number(s.fov) || DEFAULTS.fov)),
-    showPerception: !!s.showPerception,
+    overlay: ['perception', 'views', 'off'].includes(s.overlay) ? s.overlay : DEFAULTS.overlay,
     perceptionDrift: (s.perceptionDrift === undefined || s.perceptionDrift === null || Number.isNaN(Number(s.perceptionDrift))
       ? DEFAULTS.perceptionDrift
       : Math.min(8, Math.max(0, Number(s.perceptionDrift)))),
+    wFade: !!s.wFade,
     quality: ['off', 'low', 'high'].includes(s.quality) ? s.quality : DEFAULTS.quality,
     wStep: [0.25, 0.5].includes(Number(s.wStep)) ? Number(s.wStep) : DEFAULTS.wStep
   };
@@ -28,7 +30,15 @@ function clampSettings(s) {
 
 function load() {
   try {
-    return clampSettings({ ...DEFAULTS, ...JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}') });
+    const raw = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
+
+    // Older builds stored a simple perception on/off switch.
+    if (raw && typeof raw === 'object' && raw.overlay === undefined
+        && typeof raw.showPerception === 'boolean') {
+      raw.overlay = raw.showPerception ? 'perception' : 'off';
+    }
+
+    return clampSettings({ ...DEFAULTS, ...raw });
   } catch {
     return { ...DEFAULTS };
   }
@@ -81,8 +91,11 @@ export function bindOptionsUI(onApply) {
   bind('opt-sensitivity', 'sensitivity', Number);
   bind('opt-fov', 'fov', Number);
   bind('opt-inverty', 'invertY', (v) => !!v);
-  bind('opt-perception', 'showPerception', (v) => !!v);
+  bind('opt-ov-perception', 'overlay', () => 'perception');
+  bind('opt-ov-views', 'overlay', () => 'views');
+  bind('opt-ov-off', 'overlay', () => 'off');
   bind('opt-drift', 'perceptionDrift', Number);
+  bind('opt-wfade', 'wFade', (v) => !!v);
   bind('opt-q-off', 'quality', () => 'off');
   bind('opt-q-low', 'quality', () => 'low');
   bind('opt-q-high', 'quality', () => 'high');

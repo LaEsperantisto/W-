@@ -94,8 +94,15 @@
         <label>INVERT Y-AXIS
           <input id="opt-inverty" type="checkbox">
         </label>
-        <label>PERCEPTION OVERLAY
-          <input id="opt-perception" type="checkbox">
+        <label>OVERLAY
+          <span class="radio-row">
+            <input id="opt-ov-perception" type="radio" name="overlay" value="perception"><small>PERCEPTION</small>
+            <input id="opt-ov-views" type="radio" name="overlay" value="views"><small>SLICE VIEWS</small>
+            <input id="opt-ov-off" type="radio" name="overlay" value="off"><small>NONE</small>
+          </span>
+        </label>
+        <label>SLICE TRANSPARENCY FADE
+          <input id="opt-wfade" type="checkbox">
         </label>
         <label>SHADOW QUALITY
           <span class="radio-row">
