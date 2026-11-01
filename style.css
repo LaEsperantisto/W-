@@ -32,6 +32,5 @@ button:hover { border-color:var(--accent); color:var(--accent); transform:transl
 .crosshair { position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); font:20px 'DM Mono',monospace; color:rgba(220,255,245,.8); }
 .hud-help { position:absolute; right:24px; bottom:22px; text-align:right; color:rgba(230,240,245,.65); font-size:10px; line-height:1.8; letter-spacing:.04em; }
 kbd { border:1px solid rgba(255,255,255,.25); padding:2px 5px; border-radius:3px; }
-#toast { position:absolute; left:50%; bottom:12%; transform:translateX(-50%); color:var(--accent); font:11px 'DM Mono',monospace; letter-spacing:.12em; text-shadow:0 2px 12px #000; }
 .loading { position:absolute; bottom:15px; left:50%; transform:translateX(-50%); color:#70808e; font:10px 'DM Mono',monospace; }
 @media(max-width:600px) { .hud-help { font-size:9px; right:12px; bottom:12px; } .hud-left { left:14px; top:14px; } }

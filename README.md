@@ -25,8 +25,8 @@ You need an internet connection because Three.js is loaded from jsDelivr.
 - `W`, `A`, `S`, `D`: move
 - Mouse: look around (click the game to capture the mouse)
 - `Space`: jump
-- `+` / `=`: increase your W coordinate
-- `-`: decrease your W coordinate
+- `+` / `=` or `E` or scroll the mouse wheel up: increase your W coordinate
+- `-` or `Q` or scroll the mouse wheel down: decrease your W coordinate
 - `Shift`: move faster
 - `Esc`: pause / release the mouse
 - `R`: reset player
@@ -113,6 +113,8 @@ The order in this list is the order shown in the game and the order used by the 
 | `colour` | Optional decimal RGB hex colour, e.g. `9224144` |
 | `solid` | Set `false` for a non-solid object |
 
+`pos` and `size` may also carry the fourth component directly: `pos: [x, y, z, w]` and `size: [sx, sy, sz, sw]`. The `w` / `w_size` fields above are the older form and are still supported.
+
 A box at `w: 0` with `w_size: 1` occupies the interval from `w = -0.5` to `w = 0.5`. Put another platform at `w: 2` to make the player shift dimensions to reach it.
 
 ### Design tips
@@ -126,16 +128,14 @@ A box at `w: 0` with `w_size: 1` occupies the interval from `w = -0.5` to `w = 0
 ## Project structure
 
 ```text
-fourth_dimension_game/
+4d_game/
 ├── index.html
 ├── style.css
 ├── js/
 │   └── main.js
 ├── levels/
 │   ├── manifest.json
-│   ├── 01_first_slice.json
-│   ├── 02_the_offset.json
-│   └── 03_the_fold.json
+│   ├── 01.json … 12.json
 └── README.md
 ```
 

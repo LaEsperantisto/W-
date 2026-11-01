@@ -54,7 +54,6 @@ let perceptionScene = null;
 let perceptionCamera = null;
 let perceptionCanvas = null;
 let perceptionGrid = null;
-let perceptionHorizontalRings = null;
 
 function createPerceptionView() {
   const panel = document.createElement('div');
@@ -147,43 +146,13 @@ function createPerceptionView() {
 }
 
 
-function updatePerceptionSlice() {
-  if (!perceptionScene) return;
-
-  for (const item of objects) {
-    const mesh = item.perceptionMesh;
-    if (!mesh) continue;
-
-    const centreY = item.pos4[1];
-    const halfY = item.size4[1] / 2;
-
-    // Show the object whenever the current Y slice
-    // intersects it, including when the player is inside.
-    mesh.visible = true;
-
-    mesh.frustumCulled = false;
-    mesh.material.side = THREE.DoubleSide;
-
-    // Make the outlines visible from inside.
-    const outline = mesh.children[0];
-
-    if (outline) {
-      outline.material.depthTest = false;
-      outline.material.depthWrite = false;
-      outline.renderOrder = 2;
-    }
-
-    mesh.renderOrder = 1;
-  }
-}
-
 function renderPerceptionView() {
   if (!perceptionRenderer || !perceptionCamera) return;
 
   // Position the camera in WXZ coordinates.
   perceptionCamera.position.set(
     player.x,
-    player.w,
+    player.w - player.pitch * 3,
     player.z
   );
 
@@ -294,7 +263,6 @@ let keys = {};
 let locked = false;
 let running = false;
 let lastTime = 0;
-let toastTimer = 0;
 
 const W_STEP = 0.25;
 const W_LIMIT = 8;
@@ -302,29 +270,23 @@ const W_LIMIT = 8;
 const PLAYER_RADIUS = 0.32;
 const PLAYER_HEIGHT = 1.7;
 
-const materialCache = new Map();
-
-
 // ============================================================
 // MATERIALS
 // ============================================================
 
+// Each mesh gets its own material: updateSlice() fades objects
+// independently, so materials must never be shared between boxes.
 function material(hex, opacity = 1, emissive = 0x000000) {
-  const key = `${hex}-${opacity}-${emissive}`;
-
-  if (!materialCache.has(key)) {
-    materialCache.set(key, new THREE.MeshStandardMaterial({
-      color: hex,
-      roughness: 0.78,
-      metalness: 0.08,
-      opacity,
-      emissive,
-      emissiveIntensity: 0.5,
-      side: THREE.DoubleSide
-    }));
-  }
-
-  return materialCache.get(key);
+  return new THREE.MeshStandardMaterial({
+    color: hex,
+    roughness: 0.78,
+    metalness: 0.08,
+    opacity,
+    transparent: opacity < 1,
+    emissive,
+    emissiveIntensity: 0.5,
+    side: THREE.DoubleSide
+  });
 }
 
 
@@ -332,15 +294,24 @@ function material(hex, opacity = 1, emissive = 0x000000) {
 // WORLD MANAGEMENT
 // ============================================================
 
+function disposeMesh(mesh) {
+  mesh.geometry.dispose();
+  mesh.material.dispose();
+
+  for (const child of mesh.children) {
+    child.geometry.dispose();
+    child.material.dispose();
+  }
+}
+
 function clearWorld() {
   for (const obj of objects) {
     scene.remove(obj.mesh);
+    disposeMesh(obj.mesh);
 
     if (obj.perceptionMesh && perceptionScene) {
       perceptionScene.remove(obj.perceptionMesh);
-
-      obj.perceptionMesh.geometry.dispose();
-      obj.perceptionMesh.material.dispose();
+      disposeMesh(obj.perceptionMesh);
     }
   }
 
@@ -424,7 +395,7 @@ function addHyperBox(rawSpec, isGoal = false) {
   // Add edge outlines so blocks are clearly defined from the inside
   const edgesGeo = new THREE.EdgesGeometry(geo);
   const edgesMat = new THREE.LineBasicMaterial({
-    color: spec.colour,
+    color: spec.colour ?? (isGoal ? 0x8cf0d0 : 0x7895a8),
     transparent: true,
     opacity: 0.8
   });
@@ -455,6 +426,7 @@ function addHyperBox(rawSpec, isGoal = false) {
 
   // Render both sides of the geometry.
   perceptionMaterial.side = THREE.DoubleSide;
+  
 
   // Prevent transparent surfaces from incorrectly
   // writing to the depth buffer.
@@ -586,15 +558,12 @@ function updatePos() {
 /**
  * Main view:
  *
- * A hyperbox intersects the XYZ slice when:
+ * A hyperbox intersects the XYZ slice when W = player.w.
+ * It fades as the player nears the edge of its W interval
+ * and disappears past it.
  *
- * W = player.w
- *
- * The second view:
- *
- * A hyperbox intersects the WXZ slice when:
- *
- * Y = player.y + PERCEPTION_EYE_HEIGHT
+ * The perception view shows every object's X/Z footprint and
+ * W extent (W mapped to its vertical axis), like a slice map.
  */
 function updateSlice() {
   for (const item of objects) {
@@ -615,22 +584,12 @@ function updateSlice() {
       item.mesh.visible = false;
     }
   }
-
-  // Update the second 3D slice too.
-  updatePerceptionSlice();
 }
 
 
 // ============================================================
 // W MOVEMENT
 // ============================================================
-
-function say(message) {
-  if ($('toast')) {
-    $('toast').textContent = message;
-    toastTimer = 2.2;
-  }
-}
 
 function changeW(amount) {
   const next = Math.max(
@@ -646,8 +605,6 @@ function changeW(amount) {
   player.w = next;
 
   updateSlice();
-
-  say(`W = ${player.w.toFixed(2)}`);
 }
 
 
@@ -795,8 +752,6 @@ function update(dt) {
     resetPlayer();
   }
 
-  updatePerceptionSlice();
-
   // Main XYZ camera.
   camera.position.set(
     player.x,
@@ -812,14 +767,6 @@ function update(dt) {
   );
 
   checkGoal();
-
-  if (toastTimer > 0) {
-    toastTimer -= dt;
-
-    if (toastTimer <= 0 && $('toast')) {
-      $('toast').textContent = '';
-    }
-  }
 
   updatePos();
 }
@@ -910,7 +857,7 @@ function renderLevelList() {
     button.className = 'level-card';
 
     const strong = document.createElement('strong');
-    strong.textContent = `LEVEL 0${i + 1}`;
+    strong.textContent = `LEVEL ${String(i + 1).padStart(2, '0')}`;
 
     const name = document.createElement('span');
     name.textContent = level.name;
