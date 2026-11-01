@@ -1,0 +1,34 @@
+{
+  "landmarks": [
+    {
+      "key": "ruin",
+      "name": "The Overgrown Ruin",
+      "blurb": "A stone house gone down to its doorjambs, the hearth still standing with no roof above it. Marta's survey book has a page pressed flat against the north wall, and the same date scratched four times into the jamb, once for each time she came back and sat down."
+    },
+    {
+      "key": "obelisk",
+      "name": "The Black Obelisk",
+      "blurb": "Four metres of black stone with no quarry mark and no lichen on any face. It casts a short shadow at noon that points wrong, and beside it her instruments stopped returning numbers, so she wrote a single line in the margin instead: W is local."
+    },
+    {
+      "key": "arch",
+      "name": "The Broken Arch",
+      "blurb": "The last span of an old pack road over a burn that changed its course a century ago. She camped in its shade once on the far survey, and the two cairns at its feet match marks pencilled into her log, keyed to a route no map carries."
+    },
+    {
+      "key": "hilltop",
+      "name": "The Wind-Scoured Hilltop",
+      "blurb": "A bald top where the wind stands so steady you can lean on it. On clear days the station sits on its shelf below, and the air above the ridge shimmers like heat off a road, though nothing here is warm enough to make heat; she wrote the same thing, in the same words, in June."
+    },
+    {
+      "key": "lake",
+      "name": "The Mirror-Still Lake",
+      "blurb": "A corrie lake that holds the sky exactly and breaks it for nothing, no ripple, no weed at the surface. She sounded its depth at four points and noted that the depth changed between soundings; her footnote reads only that it remembers the shape of whatever crosses it."
+    },
+    {
+      "key": "flats",
+      "name": "The Pale Mineral Flat",
+      "blurb": "A hard white flat of bleached mineral where the wind never quite stops and still nothing grows. Her last surveyed walk ends at its edge with a note that she could hear the salt humming under the crust, patient and low, and that she stood there until it stopped."
+    }
+  ]
+}

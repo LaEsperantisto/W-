@@ -27,8 +27,10 @@
       <h1>W<span>—</span></h1>
       <p class="subtitle">BEYOND THE THIRD AXIS</p>
       <p class="intro">You can move through three dimensions.<br>But there is another direction.</p>
-      <button id="start-button" class="primary">ENTER THE FOURTH DIMENSION</button>
-      <button id="levels-button" class="secondary">CHOOSE A LEVEL</button>
+      <button id="levels-button" class="primary">LEVEL MODE</button>
+      <button id="story-button" class="secondary">STORY MODE</button>
+      <button id="open-world-button" class="secondary">OPEN WORLD</button>
+      <button id="options-button" class="text-button">OPTIONS</button>
       <p class="small">WASD · Mouse · Space · + / −</p>
     </section>
 
@@ -39,13 +41,72 @@
       <button id="level-back" class="secondary">BACK</button>
     </section>
 
+    <section id="world-screen" class="screen hidden">
+      <div class="eyebrow">COLLAPSE A SEED INTO A WORLD</div>
+      <h2>Open world</h2>
+      <p class="intro">A procedural world with its own fourth dimension.<br>Mine, build, survive, and look for what was left behind.</p>
+      <label class="field-label" for="w-seed">WORLD SEED</label>
+      <input id="w-seed" class="seed-input" type="text" maxlength="24" autocomplete="off" spellcheck="false" placeholder="type a seed">
+      <button id="w-generate" class="primary">GENERATE</button>
+      <button id="world-back" class="secondary">BACK</button>
+    </section>
+
+    <section id="story-screen" class="screen hidden">
+      <div class="eyebrow" id="story-eyebrow">THE LONG WAY HOME</div>
+      <h2 id="story-title">Story</h2>
+      <div id="story-text" class="story-text"></div>
+      <button id="story-continue" class="primary">CONTINUE</button>
+      <button id="story-abandon" class="text-button">RETURN TO TITLE</button>
+    </section>
+
     <section id="pause-screen" class="screen hidden">
       <div class="eyebrow">REALITY SUSPENDED</div>
       <h2>Paused</h2>
       <p id="pause-level"></p>
       <button id="resume-button" class="primary">RESUME</button>
+      <button id="pause-options-button" class="secondary">OPTIONS</button>
       <button id="pause-levels-button" class="secondary">CHANGE LEVEL</button>
       <button id="title-button" class="text-button">TITLE SCREEN</button>
+    </section>
+
+    <section id="options-screen" class="screen hidden">
+      <div class="eyebrow">CALIBRATION</div>
+      <h2>Options</h2>
+      <div class="options-grid">
+        <label>MOUSE SENSITIVITY
+          <input id="opt-sensitivity" type="range" min="0.1" max="3" step="0.05">
+          <span id="opt-sensitivity-value"></span>
+        </label>
+        <label>FIELD OF VIEW
+          <input id="opt-fov" type="range" min="60" max="110" step="1">
+          <span id="opt-fov-value"></span>
+        </label>
+        <label>PERCEPTION CAMERA DRIFT
+          <input id="opt-drift" type="range" min="0" max="8" step="0.5">
+          <span id="opt-drift-value"></span>
+        </label>
+        <label>W STEP SIZE
+          <span class="radio-row">
+            <input id="opt-wstep-25" type="radio" name="wstep" value="0.25"><small>0.25</small>
+            <input id="opt-wstep-50" type="radio" name="wstep" value="0.5"><small>0.5</small>
+          </span>
+        </label>
+        <label>INVERT Y-AXIS
+          <input id="opt-inverty" type="checkbox">
+        </label>
+        <label>PERCEPTION OVERLAY
+          <input id="opt-perception" type="checkbox">
+        </label>
+        <label>SHADOW QUALITY
+          <span class="radio-row">
+            <input id="opt-q-off" type="radio" name="quality" value="off"><small>OFF</small>
+            <input id="opt-q-low" type="radio" name="quality" value="low"><small>LOW</small>
+            <input id="opt-q-high" type="radio" name="quality" value="high"><small>HIGH</small>
+          </span>
+        </label>
+      </div>
+      <button id="opt-reset" class="secondary">RESET DEFAULTS</button>
+      <button id="opt-back" class="primary">BACK</button>
     </section>
 
     <section id="complete-screen" class="screen hidden">

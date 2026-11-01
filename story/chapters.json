@@ -1,0 +1,10 @@
+{
+  "chapters": [
+    { "file": "ch01.json" },
+    { "file": "ch02.json" },
+    { "file": "ch03.json" },
+    { "file": "ch04.json" },
+    { "file": "ch05.json" },
+    { "file": "ch06.json" }
+  ]
+}

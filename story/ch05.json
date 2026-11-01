@@ -1,0 +1,38 @@
+{
+  "name": "The Glass Field",
+  "description": "Pillars that breathe in and out of the ground.",
+  "completion": "Marta walked this line. So did you.",
+  "spawn": [0, 0.05, 7, 0],
+  "boxes": [
+    { "pos": [0, -0.5, 7, 0], "size": [5, 1, 4, 2], "colour": 7820664 },
+
+    { "pos": [-6, 1.2, 2.5, 0], "size": [1.6, 1.6, 1.6, 1.6], "colour": 10475752, "move": { "axis": "y", "range": 0.9, "period": 3.4, "phase": 0 } },
+    { "pos": [-3, 1.2, 2.5, 0], "size": [1.6, 1.6, 1.6, 1.6], "colour": 10475752, "move": { "axis": "y", "range": 1.2, "period": 4.2, "phase": 1.1 } },
+    { "pos": [0, 1.2, 2.5, 0], "size": [1.6, 1.6, 1.6, 1.6], "colour": 10475752, "move": { "axis": "y", "range": 0.8, "period": 3.0, "phase": 2.4 } },
+    { "pos": [3, 1.2, 2.5, 0], "size": [1.6, 1.6, 1.6, 1.6], "colour": 10475752, "move": { "axis": "y", "range": 1.3, "period": 4.8, "phase": 0.6 } },
+    { "pos": [6, 1.2, 2.5, 0], "size": [1.6, 1.6, 1.6, 1.6], "colour": 10475752, "move": { "axis": "y", "range": 1.0, "period": 3.8, "phase": 2.9 } },
+
+    { "pos": [-4.5, 1.2, 0, 0], "size": [1.6, 1.6, 1.6, 1.6], "colour": 10475752, "move": { "axis": "y", "range": 1.1, "period": 4.0, "phase": 1.7 } },
+    { "pos": [-1.5, 1.2, 0, 0], "size": [1.6, 1.6, 1.6, 1.6], "colour": 10475752, "move": { "axis": "y", "range": 1.4, "period": 5.0, "phase": 0.3 } },
+    { "pos": [1.5, 1.2, 0, 0], "size": [1.6, 1.6, 1.6, 1.6], "colour": 10475752, "move": { "axis": "y", "range": 0.9, "period": 3.5, "phase": 2.2 } },
+    { "pos": [4.5, 1.2, 0, 0], "size": [1.6, 1.6, 1.6, 1.6], "colour": 10475752, "move": { "axis": "y", "range": 1.2, "period": 4.5, "phase": 3.0 } },
+
+    { "pos": [-6, 1.2, -2.5, 0], "size": [1.6, 1.6, 1.6, 1.6], "colour": 10475752, "move": { "axis": "y", "range": 1.3, "period": 4.4, "phase": 0.9 } },
+    { "pos": [-3, 1.2, -2.5, 0], "size": [1.6, 1.6, 1.6, 1.6], "colour": 10475752, "move": { "axis": "y", "range": 0.8, "period": 3.2, "phase": 2.6 } },
+    { "pos": [0, 1.2, -2.5, 0], "size": [1.6, 1.6, 1.6, 1.6], "colour": 10475752, "move": { "axis": "y", "range": 1.1, "period": 3.9, "phase": 1.4 } },
+    { "pos": [3, 1.2, -2.5, 0], "size": [1.6, 1.6, 1.6, 1.6], "colour": 10475752, "move": { "axis": "y", "range": 1.4, "period": 5.0, "phase": 0.2 } },
+    { "pos": [6, 1.2, -2.5, 0], "size": [1.6, 1.6, 1.6, 1.6], "colour": 10475752, "move": { "axis": "y", "range": 0.9, "period": 3.6, "phase": 2.0 } },
+
+    { "pos": [-4.5, 1.2, -5, 0], "size": [1.6, 1.6, 1.6, 1.6], "colour": 10475752, "move": { "axis": "y", "range": 1.0, "period": 3.6, "phase": 0.8 } },
+    { "pos": [-1.5, 1.2, -5, 0], "size": [1.6, 1.6, 1.6, 1.6], "colour": 10475752, "move": { "axis": "y", "range": 1.3, "period": 4.6, "phase": 2.7 } },
+    { "pos": [1.5, 1.2, -5, 0], "size": [1.6, 1.6, 1.6, 1.6], "colour": 10475752, "move": { "axis": "y", "range": 0.8, "period": 3.1, "phase": 1.9 } },
+    { "pos": [4.5, 1.2, -5, 0], "size": [1.6, 1.6, 1.6, 1.6], "colour": 10475752, "move": { "axis": "y", "range": 1.2, "period": 4.3, "phase": 0.4 } },
+
+    { "pos": [0, -0.5, -8.5, 0], "size": [5, 1, 3, 2], "colour": 7820664 }
+  ],
+  "goal": {
+    "pos": [0, 1.2, -9.4, 0],
+    "size": [1.2, 2.2, 0.4, 1.4],
+    "colour": 9236688
+  }
+}

@@ -34,3 +34,21 @@ button:hover { border-color:var(--accent); color:var(--accent); transform:transl
 kbd { border:1px solid rgba(255,255,255,.25); padding:2px 5px; border-radius:3px; }
 .loading { position:absolute; bottom:15px; left:50%; transform:translateX(-50%); color:#70808e; font:10px 'DM Mono',monospace; }
 @media(max-width:600px) { .hud-help { font-size:9px; right:12px; bottom:12px; } .hud-left { left:14px; top:14px; } }
+#title-screen button { width:min(360px,84vw); margin-top:10px; }
+.field-label { display:block; width:min(360px,84vw); text-align:left; font:500 10px 'DM Mono',monospace; letter-spacing:.13em; color:var(--muted); margin:18px 0 0; }
+.seed-input { width:min(360px,84vw); margin-top:7px; background:rgba(255,255,255,.05); border:1px solid rgba(210,230,240,.25); color:var(--ink); padding:12px 14px; font:400 13px 'DM Mono',monospace; letter-spacing:.1em; }
+.seed-input:focus { outline:none; border-color:var(--accent); }
+#world-screen button { margin-top:14px; }
+.story-text { max-width:660px; max-height:46vh; overflow-y:auto; color:#c2cbd4; text-align:left; padding:0 6px; }
+.story-text p { margin:0 0 16px; line-height:1.8; font-size:15px; }
+#story-continue { margin-top:22px; }
+.options-grid { display:flex; flex-direction:column; gap:20px; width:min(430px,88vw); margin:8px 0 26px; text-align:left; }
+.options-grid>label { display:flex; flex-direction:column; gap:8px; font:500 10px 'DM Mono',monospace; letter-spacing:.13em; color:var(--muted); }
+.options-grid input[type=range] { width:100%; accent-color:var(--accent); }
+.options-grid input[type=checkbox] { width:17px; height:17px; accent-color:var(--accent); }
+.options-grid label>span[id$='-value'] { color:var(--accent); }
+.radio-row { display:flex; gap:6px; align-items:center; }
+.radio-row input[type=radio] { width:15px; height:15px; accent-color:var(--accent); }
+.radio-row small { font:400 10px 'DM Mono',monospace; letter-spacing:.08em; color:var(--ink); margin:0 10px 0 2px; }
+#options-screen .secondary { width:min(220px,84vw); }
+#opt-back { width:min(220px,84vw); margin-top:12px; }

@@ -2,6 +2,14 @@
 
 A small first-person browser game about exploring a 3D world while moving along a fourth spatial coordinate, `w`.
 
+The title screen offers three modes:
+
+- **Levels** — the twelve hand-built puzzle rooms, completed in order or picked from the list.
+- **Story — The Long Way Home** — a six-chapter campaign with interludes and an epilogue. Your place in the campaign is saved, so returning to Story mode resumes where you left off.
+- **Open World** — a seeded, procedurally generated voxel world you can mine and build in. Everything you dig or place is stored per seed, so the same seed gives you the same world, kept the way you left it. Find the fourteen artifacts (some hide in other W slices), watch out for wraiths that phase through W, sleep in the cabin bed to move your spawn, and fall out of the world and you wake up there. Type any seed to get a different world.
+
+The pause menu (Esc) also has an **Options** button, reachable from the title screen too.
+
 ## Run it
 
 The game loads level JSON files with `fetch()`, so it must be served over HTTP rather than opened directly as `file://`.
@@ -32,6 +40,27 @@ You need an internet connection because Three.js is loaded from jsDelivr.
 - `R`: reset player
 
 The `+` and `-` keys move in steps of 0.25 W units. The world currently limits you to `-8 <= w <= 8`.
+
+### Open World controls
+
+All of the above, plus:
+
+- **Left mouse button** (hold): mine the block at the crosshair
+- **Right mouse button**: place a block from your inventory
+- `1`–`5`: pick dirt, stone, wood, leaves or sand for placing
+- `F`: sleep in the cabin bed to set your spawn
+- `R`: respawn at your bed/spawn
+- The perception overlay marks nearby wraiths and artifacts; artifacts you can currently see glow at their height along W.
+
+## Options
+
+- **Look sensitivity** and **Invert Y**
+- **Field of view** (60–110)
+- **Perception overlay** on/off, and a **drift** slider (0 disables marker drift)
+- **Shadow quality**: off / low / high
+- **W step**: 0.25 or 0.5 per keypress
+
+Options are saved in the browser and apply live.
 
 ## How the fourth dimension works here
 
@@ -132,10 +161,20 @@ A box at `w: 0` with `w_size: 1` occupies the interval from `w = -0.5` to `w = 0
 ├── index.html
 ├── style.css
 ├── js/
-│   └── main.js
+│   ├── engine.js        core 4D slice engine (rendering, physics, W slicing)
+│   ├── main.js          screens, menus, mode switching, input glue
+│   ├── options.js       persistent settings + options screen binding
+│   └── world.js         procedural open world (terrain, mining, artifacts, wraiths)
 ├── levels/
 │   ├── manifest.json
 │   ├── 01.json … 12.json
+├── story/
+│   ├── chapters.json    campaign chapter list
+│   └── ch01.json … ch06.json
+├── prose/
+│   ├── story.json       interlude/epilogue text for the campaign
+│   ├── artifacts.json   artifact blurbs
+│   └── landmarks.json   landmark arrival blurbs
 └── README.md
 ```
 

@@ -1,202 +1,33 @@
-
-import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js';
+import { settings, bindOptionsUI } from './options.js';
+import * as engine from './engine.js';
+import * as world from './world.js';
 
 const $ = (id) => document.getElementById(id);
-const screens = ['title-screen', 'level-screen', 'pause-screen', 'complete-screen'];
+
+const screens = [
+  'title-screen',
+  'level-screen',
+  'pause-screen',
+  'complete-screen',
+  'options-screen',
+  'story-screen',
+  'world-screen'
+];
+
 const showScreen = (id) => screens.forEach(s => {
   const el = $(s);
   if (el) el.classList.toggle('hidden', s !== id);
 });
 
-// ============================================================
-// MAIN 3D SCENE (XYZ)
-// ============================================================
-
-const scene = new THREE.Scene();
-scene.background = new THREE.Color(0x080d16);
-scene.fog = new THREE.Fog(0x080d16, 18, 65);
-
-const camera = new THREE.PerspectiveCamera(
-  75,
-  window.innerWidth / window.innerHeight,
-  0.1,
-  120
-);
-
-camera.rotation.order = 'YXZ';
-
 const viewCanvas = $('view');
-const renderer = new THREE.WebGLRenderer({
-  canvas: viewCanvas,
-  antialias: true
-});
 
-renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-renderer.setSize(window.innerWidth, window.innerHeight);
-renderer.shadowMap.enabled = true;
-renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-
-// Lighting
-scene.add(new THREE.HemisphereLight(0xb9d9ed, 0x18202b, 1.7));
-
-const sun = new THREE.DirectionalLight(0xffffff, 2.0);
-sun.position.set(-8, 16, 7);
-sun.castShadow = true;
-scene.add(sun);
-
-// Reference Grid
-const grid = new THREE.GridHelper(100, 100, 0x294452, 0x172a37);
-grid.position.y = -0.02;
-scene.add(grid);
-
-let perceptionRenderer = null;
-let perceptionScene = null;
-let perceptionCamera = null;
-let perceptionCanvas = null;
-let perceptionGrid = null;
-
-function createPerceptionView() {
-  const panel = document.createElement('div');
-
-  panel.id = 'perception-panel';
-  panel.innerHTML = `
-    <canvas id="perception-canvas"></canvas>
-  `;
-
-  document.body.appendChild(panel);
-
-  // Transparent corner overlay.
-  const style = document.createElement('style');
-
-  style.textContent = `
-    #perception-panel {
-      position: fixed;
-      top: 12px;
-      right: 12px;
-      width: 500px;
-      height: 220px;
-      z-index: 1000;
-      pointer-events: none;
-      background: transparent;
-    }
-
-    #perception-canvas {
-      display: block;
-      width: 100%;
-      height: 100%;
-      background: transparent;
-    }
-
-    @media (max-width: 600px) {
-      #perception-panel {
-        top: 5px;
-        right: 5px;
-        width: 180px;
-        height: 135px;
-      }
-    }
-  `;
-
-  document.head.appendChild(style);
-
-  perceptionCanvas = $('perception-canvas');
-
-  perceptionRenderer = new THREE.WebGLRenderer({
-    canvas: perceptionCanvas,
-    antialias: true,
-    alpha: true
-  });
-
-  perceptionRenderer.setPixelRatio(
-    Math.min(window.devicePixelRatio, 2)
-  );
-
-  perceptionRenderer.setSize(
-    perceptionCanvas.clientWidth,
-    perceptionCanvas.clientHeight
-  );
-
-  perceptionRenderer.setClearColor(0x000000, 0);
-
-  perceptionScene = new THREE.Scene();
-
-  perceptionScene.fog = new THREE.Fog(0x080d16, 18, 65);
-
-  perceptionCamera = new THREE.PerspectiveCamera(
-    75,
-    perceptionCanvas.clientWidth / perceptionCanvas.clientHeight,
-    0.1,
-    120
-  );
-
-  perceptionCamera.rotation.order = 'YXZ';
-
-  // Lighting for the second scene.
-  perceptionScene.add(
-    new THREE.HemisphereLight(0xb9d9ed, 0x18202b, 1.7)
-  );
-
-  const perceptionSun = new THREE.DirectionalLight(
-    0xffffff,
-    2.0
-  );
-
-  perceptionSun.position.set(-8, 16, 7);
-  perceptionScene.add(perceptionSun);
-}
-
-
-function renderPerceptionView() {
-  if (!perceptionRenderer || !perceptionCamera) return;
-
-  // Position the camera in WXZ coordinates.
-  perceptionCamera.position.set(
-    player.x,
-    player.w - player.pitch * 3,
-    player.z
-  );
-
-  // The perception camera has its own orientation.
-  // It follows horizontal rotation but never follows pitch.
-  perceptionCamera.rotation.order = 'YXZ';
-  perceptionCamera.rotation.x = player.pitch;
-  perceptionCamera.rotation.y = player.yaw;
-  perceptionCamera.rotation.z = 0;
-
-  // Create the grid if necessary.
-  if (!perceptionGrid) {
-    perceptionGrid = new THREE.GridHelper(
-      100,
-      100,
-      0x4488ff,
-      0x555555
-    );
-
-    perceptionScene.add(perceptionGrid);
-  }
-
-  // Keep the grid centred on the player.
-  perceptionGrid.position.set(
-    player.x,
-    player.w,
-    player.z
-  );
-
-  // Render the perception view.
-  perceptionRenderer.render(
-    perceptionScene,
-    perceptionCamera
-  );
-}
-
+let locked = false;
+let mode = 'level'; // 'level' | 'story' | 'world'
+let optionsReturn = 'title-screen';
 
 // ============================================================
-// 4D WORLD DATA
+// LEVEL MODE
 // ============================================================
-
-// Built-in Levels with 4D Hyperbox Geometry
-// Position: [X, Y, Z, W]
-// Size:     [SX, SY, SZ, SW]
 
 const DEFAULT_LEVELS = [
   {
@@ -242,563 +73,6 @@ const DEFAULT_LEVELS = [
 
 let levels = [];
 let currentIndex = 0;
-let currentLevel = null;
-
-let objects = [];
-let solids = [];
-let goal = null;
-
-let player = {
-  x: 0,
-  y: 1.7,
-  z: 5,
-  w: 0,
-  vy: 0,
-  yaw: 0,
-  pitch: 0,
-  onGround: false
-};
-
-let keys = {};
-let locked = false;
-let running = false;
-let lastTime = 0;
-
-const W_STEP = 0.25;
-const W_LIMIT = 8;
-
-const PLAYER_RADIUS = 0.32;
-const PLAYER_HEIGHT = 1.7;
-
-// ============================================================
-// MATERIALS
-// ============================================================
-
-// Each mesh gets its own material: updateSlice() fades objects
-// independently, so materials must never be shared between boxes.
-function material(hex, opacity = 1, emissive = 0x000000) {
-  return new THREE.MeshStandardMaterial({
-    color: hex,
-    roughness: 0.78,
-    metalness: 0.08,
-    opacity,
-    transparent: opacity < 1,
-    emissive,
-    emissiveIntensity: 0.5,
-    side: THREE.DoubleSide
-  });
-}
-
-
-// ============================================================
-// WORLD MANAGEMENT
-// ============================================================
-
-function disposeMesh(mesh) {
-  mesh.geometry.dispose();
-  mesh.material.dispose();
-
-  for (const child of mesh.children) {
-    child.geometry.dispose();
-    child.material.dispose();
-  }
-}
-
-function clearWorld() {
-  for (const obj of objects) {
-    scene.remove(obj.mesh);
-    disposeMesh(obj.mesh);
-
-    if (obj.perceptionMesh && perceptionScene) {
-      perceptionScene.remove(obj.perceptionMesh);
-      disposeMesh(obj.perceptionMesh);
-    }
-  }
-
-  objects = [];
-  solids = [];
-  goal = null;
-}
-
-
-/**
- * Parses and converts a 4D specification.
- *
- * Supports:
- * pos: [x, y, z, w]
- * or legacy pos: [x, y, z], w: number
- *
- * Supports:
- * size: [sx, sy, sz, sw]
- * or legacy size: [sx, sy, sz], w_size: number
- */
-function parse4DSpec(spec) {
-  const pos = [
-    spec.pos[0] ?? 0,
-    spec.pos[1] ?? 0,
-    spec.pos[2] ?? 0,
-    spec.pos[3] ?? (spec.w ?? 0)
-  ];
-
-  let size;
-
-  if (spec.size.length >= 4) {
-    size = [
-      spec.size[0],
-      spec.size[1],
-      spec.size[2],
-      spec.size[3]
-    ];
-  } else {
-    size = [
-      spec.size[0],
-      spec.size[1],
-      spec.size[2],
-      spec.w_size ?? 1.2
-    ];
-  }
-
-  return {
-    pos,
-    size,
-    colour: spec.colour,
-    solid: spec.solid !== false
-  };
-}
-
-
-// ============================================================
-// HYPERBOX CREATION
-// ============================================================
-
-function addHyperBox(rawSpec, isGoal = false) {
-  const spec = parse4DSpec(rawSpec);
-
-  // ----------------------------------------------------------
-  // Main XYZ mesh
-  // ----------------------------------------------------------
-
-  const geo = new THREE.BoxGeometry(
-    spec.size[0],
-    spec.size[1],
-    spec.size[2]
-  );
-
-  const mat = material(
-    spec.colour ?? (isGoal ? 0x8cf0d0 : 0x7895a8),
-    isGoal ? 0.9 : 0.35, // Slightly transparent so you can see when inside
-    isGoal ? 0x164b3b : 0
-  );
-
-  const mesh = new THREE.Mesh(geo, mat);
-
-  // Add edge outlines so blocks are clearly defined from the inside
-  const edgesGeo = new THREE.EdgesGeometry(geo);
-  const edgesMat = new THREE.LineBasicMaterial({
-    color: spec.colour ?? (isGoal ? 0x8cf0d0 : 0x7895a8),
-    transparent: true,
-    opacity: 0.8
-  });
-  const edgeLines = new THREE.LineSegments(edgesGeo, edgesMat);
-  mesh.add(edgeLines);
-
-  mesh.position.set(
-    spec.pos[0],
-    spec.pos[1],
-    spec.pos[2]
-  );
-
-  mesh.castShadow = true;
-  mesh.receiveShadow = true;
-
-  scene.add(mesh);
-
-  // ----------------------------------------------------------
-  // WXZ mesh (Perception View)
-  // ----------------------------------------------------------
-
-  const perceptionGeometry = new THREE.BoxGeometry(
-    spec.size[0],
-    spec.size[3],
-    spec.size[2]
-  );
-  const perceptionMaterial = mat.clone();
-
-  // Render both sides of the geometry.
-  perceptionMaterial.side = THREE.DoubleSide;
-  
-
-  // Prevent transparent surfaces from incorrectly
-  // writing to the depth buffer.
-  perceptionMaterial.depthWrite = false;
-
-  const perceptionMesh = new THREE.Mesh(
-    perceptionGeometry,
-    perceptionMaterial
-  );
-
-  // Never cull perception meshes based on their bounds.
-  perceptionMesh.frustumCulled = false;
-  perceptionMesh.renderOrder = 1;
-
-  // Add matching outlines to the perception mesh.
-  const perceptionEdgesGeo = new THREE.EdgesGeometry(perceptionGeometry);
-
-  const perceptionEdgeMaterial = edgesMat.clone();
-  perceptionEdgeMaterial.depthTest = false;
-  perceptionEdgeMaterial.depthWrite = false;
-
-  const perceptionEdgeLines = new THREE.LineSegments(
-    perceptionEdgesGeo,
-    perceptionEdgeMaterial
-  );
-
-  perceptionEdgeLines.renderOrder = 2;
-  perceptionMesh.add(perceptionEdgeLines);
-
-  perceptionMesh.position.set(
-    spec.pos[0],
-    spec.pos[3],
-    spec.pos[2]
-  );
-
-  perceptionMesh.castShadow = true;
-  perceptionMesh.receiveShadow = true;
-
-  if (perceptionScene) {
-    perceptionScene.add(perceptionMesh);
-  }
-
-  const item = {
-    mesh,
-    perceptionMesh,
-    pos4: spec.pos,
-    size4: spec.size,
-    solid: spec.solid,
-    isGoal
-  };
-
-  objects.push(item);
-
-  if (item.solid && !isGoal) {
-    solids.push(item);
-  }
-
-  if (isGoal) {
-    goal = item;
-  }
-}
-
-
-// ============================================================
-// LEVEL LOADING
-// ============================================================
-
-function loadWorld(level) {
-  clearWorld();
-
-  currentLevel = level;
-
-  for (const b of level.boxes) {
-    addHyperBox(b);
-  }
-
-  if (level.goal) {
-    addHyperBox(level.goal, true);
-  }
-
-  player = {
-    ...player,
-
-    x: level.spawn[0],
-    y: level.spawn[1],
-    z: level.spawn[2],
-    w: level.spawn[3] ?? 0,
-
-    vy: 0,
-    onGround: false
-  };
-
-  camera.position.set(
-    player.x,
-    player.y + 1.55,
-    player.z
-  );
-
-  camera.rotation.set(0, 0, 0);
-
-  player.yaw = 0;
-  player.pitch = 0;
-
-  if ($('level-name')) {
-    $('level-name').textContent = level.name.toUpperCase();
-  }
-
-  updatePos();
-  updateSlice();
-}
-
-
-// ============================================================
-// PLAYER POSITION
-// ============================================================
-
-function updatePos() {
-  if ($('w-value')) $('w-value').textContent = player.w.toFixed(2);
-  if ($('x-value')) $('x-value').textContent = player.x.toFixed(2);
-  if ($('y-value')) $('y-value').textContent = player.y.toFixed(2);
-  if ($('z-value')) $('z-value').textContent = player.z.toFixed(2);
-}
-
-
-// ============================================================
-// 4D SLICE CALCULATION
-// ============================================================
-
-/**
- * Main view:
- *
- * A hyperbox intersects the XYZ slice when W = player.w.
- * It fades as the player nears the edge of its W interval
- * and disappears past it.
- *
- * The perception view shows every object's X/Z footprint and
- * W extent (W mapped to its vertical axis), like a slice map.
- */
-function updateSlice() {
-  for (const item of objects) {
-    const wCenter = item.pos4[3];
-    const halfW = item.size4[3] / 2;
-
-    const distanceW = Math.abs(player.w - wCenter);
-
-    if (distanceW <= halfW) {
-      item.mesh.visible = true;
-
-      if (item.mesh.material.transparent) {
-        const factor = 1 - (distanceW / (halfW + 0.001));
-
-        item.mesh.material.opacity = Math.max(0.2, factor);
-      }
-    } else {
-      item.mesh.visible = false;
-    }
-  }
-}
-
-
-// ============================================================
-// W MOVEMENT
-// ============================================================
-
-function changeW(amount) {
-  const next = Math.max(
-    -W_LIMIT,
-    Math.min(
-      W_LIMIT,
-      Math.round((player.w + amount) * 100) / 100
-    )
-  );
-
-  if (next === player.w) return;
-
-  player.w = next;
-
-  updateSlice();
-}
-
-
-// ============================================================
-// COLLISION
-// ============================================================
-
-function intersectsBox(x, y, z, item) {
-  const p = item.mesh.position;
-  const s = item.size4;
-
-  return (
-    x + PLAYER_RADIUS > p.x - s[0] / 2 &&
-    x - PLAYER_RADIUS < p.x + s[0] / 2 &&
-
-    y + PLAYER_HEIGHT > p.y - s[1] / 2 &&
-    y < p.y + s[1] / 2 &&
-
-    z + PLAYER_RADIUS > p.z - s[2] / 2 &&
-    z - PLAYER_RADIUS < p.z + s[2] / 2
-  );
-}
-
-function collides(x, y, z) {
-  return solids.some(
-    o => o.mesh.visible && intersectsBox(x, y, z, o)
-  );
-}
-
-function moveAxis(axis, amount) {
-  const next = {
-    x: player.x,
-    y: player.y,
-    z: player.z
-  };
-
-  next[axis] += amount;
-
-  if (!collides(next.x, next.y, next.z)) {
-    player[axis] = next[axis];
-  } else if (axis === 'y' && amount < 0) {
-    player.vy = 0;
-    player.onGround = true;
-  }
-}
-
-
-// ============================================================
-// GOAL
-// ============================================================
-
-function checkGoal() {
-  if (!goal || !goal.mesh.visible) return;
-
-  const p = goal.mesh.position;
-  const s = goal.size4;
-
-  if (
-    Math.abs(player.x - p.x) < s[0] / 2 + 0.5 &&
-    Math.abs(player.y - p.y) < s[1] / 2 + 1.0 &&
-    Math.abs(player.z - p.z) < s[2] / 2 + 0.5
-  ) {
-    running = false;
-
-    document.exitPointerLock?.();
-
-    if ($('complete-title')) {
-      $('complete-title').textContent = currentLevel.name;
-    }
-
-    if ($('complete-message')) {
-      $('complete-message').textContent =
-        currentLevel.completion ??
-        'You found your way through the fourth dimension.';
-    }
-
-    if ($('next-button')) {
-      $('next-button').style.display =
-        currentIndex < levels.length - 1
-          ? 'inline-block'
-          : 'none';
-    }
-
-    showScreen('complete-screen');
-
-    if ($('hud')) {
-      $('hud').classList.add('hidden');
-    }
-  }
-}
-
-
-// ============================================================
-// PLAYER UPDATE
-// ============================================================
-
-function update(dt) {
-  if (!running) return;
-
-  const speed =
-    (keys.ShiftLeft || keys.ShiftRight) ? 8 : 4.5;
-
-  const forward = new THREE.Vector3(
-    -Math.sin(player.yaw),
-    0,
-    -Math.cos(player.yaw)
-  );
-
-  const right = new THREE.Vector3(
-    Math.cos(player.yaw),
-    0,
-    -Math.sin(player.yaw)
-  );
-
-  const move = new THREE.Vector3();
-
-  if (keys.KeyW) move.add(forward);
-  if (keys.KeyS) move.sub(forward);
-  if (keys.KeyD) move.add(right);
-  if (keys.KeyA) move.sub(right);
-
-  if (move.lengthSq() > 0) {
-    move.normalize().multiplyScalar(speed * dt);
-  }
-
-  moveAxis('x', move.x);
-  moveAxis('z', move.z);
-
-  if (keys.Space && player.onGround) {
-    player.vy = 6.5;
-    player.onGround = false;
-  }
-
-  player.vy -= 17 * dt;
-
-  const oldY = player.y;
-
-  moveAxis('y', player.vy * dt);
-
-  if (player.y === oldY && player.vy > 0) {
-    player.vy = 0;
-  }
-
-  if (player.y < -12) {
-    resetPlayer();
-  }
-
-  // Main XYZ camera.
-  camera.position.set(
-    player.x,
-    player.y + 1.55,
-    player.z
-  );
-
-  camera.rotation.set(
-    player.pitch,
-    player.yaw,
-    0,
-    'YXZ'
-  );
-
-  checkGoal();
-
-  updatePos();
-}
-
-
-// ============================================================
-// ANIMATION
-// ============================================================
-
-function animate(t) {
-  requestAnimationFrame(animate);
-
-  const dt = Math.min(
-    (t - lastTime) / 1000,
-    0.04
-  ) || 0;
-
-  lastTime = t;
-
-  update(dt);
-
-  // Main XYZ view.
-  renderer.render(scene, camera);
-
-  // Independent WXZ view.
-  renderPerceptionView();
-}
-
-
-// ============================================================
-// LEVEL FETCHING
-// ============================================================
 
 async function fetchLevels() {
   try {
@@ -840,11 +114,6 @@ async function fetchLevels() {
   renderLevelList();
 }
 
-
-// ============================================================
-// LEVEL SELECTION
-// ============================================================
-
 function renderLevelList() {
   const levelList = $('level-list');
 
@@ -874,15 +143,39 @@ function renderLevelList() {
   });
 }
 
+function levelComplete(level) {
+  if ($('complete-title')) {
+    $('complete-title').textContent = level.name;
+  }
 
-// ============================================================
-// GAME STATE
-// ============================================================
+  if ($('complete-message')) {
+    $('complete-message').textContent =
+      level.completion ??
+      'You found your way through the fourth dimension.';
+  }
+
+  if ($('next-button')) {
+    $('next-button').style.display =
+      currentIndex < levels.length - 1
+        ? 'inline-block'
+        : 'none';
+  }
+
+  showScreen('complete-screen');
+
+  if ($('hud')) {
+    $('hud').classList.add('hidden');
+  }
+}
 
 function startLevel(index) {
   currentIndex = index;
+  mode = 'level';
 
-  loadWorld(levels[index]);
+  engine.setCollider(null);
+  engine.setFrameHandler(null);
+  engine.setGoalHandler(levelComplete);
+  engine.loadWorld(levels[index]);
 
   if ($('hud')) {
     $('hud').classList.remove('hidden');
@@ -890,163 +183,355 @@ function startLevel(index) {
 
   showScreen(null);
 
-  running = true;
+  engine.setRunning(true);
 
   viewCanvas.requestPointerLock?.();
 }
 
-function pause() {
-  if (!running) return;
+// ============================================================
+// STORY MODE
+// ============================================================
 
-  running = false;
-  keys = {};
+let storyData = null;
+let storyIndex = Number(localStorage.getItem('w_story_progress') || 0);
+
+async function loadStory() {
+  if (storyData) return true;
+
+  try {
+    const manifest = await fetch('./story/chapters.json').then(r => {
+      if (!r.ok) {
+        throw Error('Could not load story/chapters.json');
+      }
+
+      return r.json();
+    });
+
+    const chapters = await Promise.all(
+      manifest.chapters.map(async entry => {
+        const data = await fetch(`./story/${entry.file}`).then(r => {
+          if (!r.ok) {
+            throw Error(`Could not load story/${entry.file}`);
+          }
+
+          return r.json();
+        });
+
+        return data;
+      })
+    );
+
+    const prose = await fetch('./prose/story.json').then(r => {
+      if (!r.ok) {
+        throw Error('Could not load prose/story.json');
+      }
+
+      return r.json();
+    });
+
+    storyData = { chapters, prose };
+
+    return true;
+  } catch (err) {
+    console.warn('Story mode unavailable:', err.message);
+    return false;
+  }
+}
+
+function showStoryText(eyebrow, title, paragraphs, buttonLabel, onNext) {
+  const box = $('story-text');
+
+  $('story-eyebrow').textContent = eyebrow;
+  $('story-title').textContent = title;
+
+  box.innerHTML = '';
+
+  for (const p of paragraphs) {
+    const el = document.createElement('p');
+    el.textContent = p;
+    box.append(el);
+  }
+
+  const button = $('story-continue');
+  button.textContent = buttonLabel;
+  button.onclick = onNext;
+
+  $('story-abandon').onclick = returnToTitle;
+
+  showScreen('story-screen');
+}
+
+function runStoryChapter(i) {
+  const { chapters, prose } = storyData;
+
+  if (i >= chapters.length) {
+    showStoryText(
+      prose.title ?? 'The Long Way Home',
+      'Epilogue',
+      prose.epilogue,
+      'RETURN TO TITLE',
+      returnToTitle
+    );
+
+    return;
+  }
+
+  const chapter = chapters[i];
+  const key = `ch${String(i + 1).padStart(2, '0')}`;
+  const before = prose.chapters?.[key]?.before ?? [];
+
+  showStoryText(
+    `${prose.title ?? 'The Long Way Home'} — Chapter ${i + 1}`,
+    chapter.name,
+    before,
+    'BEGIN',
+    () => startStoryChapter(i)
+  );
+}
+
+function startStoryChapter(i) {
+  const { chapters, prose } = storyData;
+  const chapter = chapters[i];
+  const key = `ch${String(i + 1).padStart(2, '0')}`;
+
+  storyIndex = i;
+  localStorage.setItem('w_story_progress', String(i));
+
+  mode = 'story';
+
+  engine.setCollider(null);
+  engine.setFrameHandler(null);
+  engine.setGoalHandler(() => {
+    localStorage.setItem('w_story_progress', String(i + 1));
+    storyIndex = i + 1;
+    updateStoryButton();
+
+    const after = prose.chapters?.[key]?.after ??
+      [chapter.completion ?? 'You press onward.'];
+
+    showStoryText(
+      `${prose.title ?? 'The Long Way Home'} — Chapter ${i + 1}`,
+      chapter.name,
+      after,
+      i + 1 < chapters.length ? 'NEXT CHAPTER' : 'EPILOGUE',
+      () => runStoryChapter(i + 1)
+    );
+
+    if ($('hud')) {
+      $('hud').classList.add('hidden');
+    }
+  });
+
+  engine.loadWorld(chapter);
+
+  if ($('hud')) {
+    $('hud').classList.remove('hidden');
+  }
+
+  showScreen(null);
+
+  engine.setRunning(true);
+
+  viewCanvas.requestPointerLock?.();
+}
+
+async function enterStory() {
+  if (!(await loadStory())) {
+    showScreen('title-screen');
+    return;
+  }
+
+  if (storyIndex >= storyData.chapters.length) {
+    storyIndex = 0; // finished once: replay from the start
+  }
+
+  if (storyIndex === 0 && storyData.prose.intro?.length) {
+    showStoryText(
+      storyData.prose.title ?? 'The Long Way Home',
+      'The Long Way Home',
+      storyData.prose.intro,
+      'BEGIN',
+      () => runStoryChapter(0)
+    );
+
+    return;
+  }
+
+  runStoryChapter(storyIndex);
+}
+
+function updateStoryButton() {
+  const button = $('story-button');
+  if (!button) return;
+
+  const saved = Number(localStorage.getItem('w_story_progress') || 0);
+
+  button.textContent = saved > 0 ? 'CONTINUE STORY' : 'STORY MODE';
+}
+
+// ============================================================
+// OPEN WORLD MODE
+// ============================================================
+
+function randomSeed() {
+  const words = ['ridge', 'halvorsen', 'vessel', 'fold', 'meadow', 'undercroft', 'lantern', 'hollow', 'meridian', 'tessellate'];
+  return words[Math.floor(Math.random() * words.length)] + '-' + Math.floor(Math.random() * 9000 + 1000);
+}
+
+function openWorldScreen() {
+  const input = $('w-seed');
+
+  input.value = localStorage.getItem('w_last_seed') || '';
+  input.placeholder = randomSeed();
+
+  showScreen('world-screen');
+}
+
+function generateWorld() {
+  const input = $('w-seed');
+  const seed = (input.value || '').trim() || input.placeholder;
+
+  localStorage.setItem('w_last_seed', seed);
+
+  mode = 'world';
+
+  engine.setGoalHandler(null);
+
+  world.enterWorld(seed);
+}
+
+// ============================================================
+// GAME STATE
+// ============================================================
+
+function pauseGame() {
+  if (!engine.getRunning()) return;
+
+  engine.setRunning(false);
+  engine.clearKeys();
 
   if ($('pause-level')) {
-    $('pause-level').textContent = currentLevel.name;
+    $('pause-level').textContent = engine.getCurrentLevel()?.name ?? '';
   }
 
   if ($('hud')) {
     $('hud').classList.add('hidden');
   }
 
+  $('pause-levels-button').style.display =
+    mode === 'level' ? 'inline-block' : 'none';
+
   showScreen('pause-screen');
 }
 
-function resume() {
+function resumeGame() {
   showScreen(null);
 
   if ($('hud')) {
     $('hud').classList.remove('hidden');
   }
 
-  running = true;
+  engine.setRunning(true);
 
   viewCanvas.requestPointerLock?.();
 }
 
-function resetPlayer() {
-  player.x = currentLevel.spawn[0];
-  player.y = currentLevel.spawn[1];
-  player.z = currentLevel.spawn[2];
-  player.w = currentLevel.spawn[3] ?? 0;
+function returnToTitle() {
+  engine.setRunning(false);
+  engine.clearKeys();
+  engine.setGoalHandler(null);
 
-  player.vy = 0;
+  if (mode === 'world') {
+    world.exitWorld();
+    mode = 'level';
+  }
 
-  updateSlice();
+  document.exitPointerLock?.();
+
+  if ($('hud')) {
+    $('hud').classList.add('hidden');
+  }
+
+  updateStoryButton();
+
+  showScreen('title-screen');
 }
 
+function openOptions(returnScreen) {
+  optionsReturn = returnScreen;
+  showScreen('options-screen');
+}
 
 // ============================================================
 // UI BUTTONS
 // ============================================================
 
-if ($('start-button')) {
-  $('start-button').onclick = () => startLevel(0);
-}
+$('levels-button').onclick = () => showScreen('level-screen');
+$('story-button').onclick = enterStory;
+$('open-world-button').onclick = openWorldScreen;
+$('options-button').onclick = () => openOptions('title-screen');
 
-if ($('levels-button')) {
-  $('levels-button').onclick = () => showScreen('level-screen');
-}
+$('level-back').onclick = () => showScreen('title-screen');
+$('world-back').onclick = () => showScreen('title-screen');
+$('w-generate').onclick = generateWorld;
 
-if ($('level-back')) {
-  $('level-back').onclick = () => showScreen('title-screen');
-}
+$('resume-button').onclick = resumeGame;
+$('pause-options-button').onclick = () => openOptions('pause-screen');
 
-if ($('resume-button')) {
-  $('resume-button').onclick = resume;
-}
+$('pause-levels-button').onclick = () => {
+  document.exitPointerLock?.();
+  showScreen('level-screen');
+};
 
-if ($('pause-levels-button')) {
-  $('pause-levels-button').onclick = () => {
-    document.exitPointerLock?.();
+$('title-button').onclick = returnToTitle;
 
-    if ($('hud')) {
-      $('hud').classList.add('hidden');
-    }
+$('opt-back').onclick = () => showScreen(optionsReturn);
 
-    showScreen('level-screen');
-  };
-}
+$('next-button').onclick = () => {
+  startLevel(Math.min(currentIndex + 1, levels.length - 1));
+};
 
-if ($('title-button')) {
-  $('title-button').onclick = () => {
-    document.exitPointerLock?.();
-
-    if ($('hud')) {
-      $('hud').classList.add('hidden');
-    }
-
-    showScreen('title-screen');
-  };
-}
-
-if ($('complete-levels-button')) {
-  $('complete-levels-button').onclick = () => {
-    showScreen('level-screen');
-  };
-}
-
-if ($('next-button')) {
-  $('next-button').onclick = () => {
-    startLevel(Math.min(currentIndex + 1, levels.length - 1));
-  };
-}
-
+$('complete-levels-button').onclick = () => {
+  showScreen('level-screen');
+};
 
 // ============================================================
-// POINTER LOCK
+// POINTER LOCK + INPUT
 // ============================================================
 
 document.addEventListener('pointerlockchange', () => {
   locked = document.pointerLockElement === viewCanvas;
 
   if (!locked) {
-    keys = {};
+    engine.clearKeys();
 
-    if (running) {
-      pause();
+    if (engine.getRunning()) {
+      pauseGame();
     }
   }
 });
 
-// Clear held keys if the browser loses focus.
 window.addEventListener('blur', () => {
-  keys = {};
+  engine.clearKeys();
 });
 
 document.addEventListener('mousemove', e => {
-  if (!locked || !running) return;
+  if (!locked || !engine.getRunning()) return;
 
-  player.yaw -= e.movementX * 0.0022;
-  player.pitch -= e.movementY * 0.0022;
-
-  player.pitch = Math.max(
-    -Math.PI / 2 + 0.03,
-    Math.min(Math.PI / 2 - 0.03, player.pitch)
-  );
+  engine.look(e.movementX, e.movementY);
 });
 
-
-// ============================================================
-// W CONTROLS
-// ============================================================
-
-// Mouse wheel changes W.
 document.addEventListener('wheel', e => {
-  if (!running) return;
+  if (!engine.getRunning()) return;
 
   e.preventDefault();
 
-  const amount = e.deltaY < 0
-    ? W_STEP
-    : -W_STEP;
-
-  changeW(amount);
+  engine.changeW((e.deltaY < 0 ? 1 : -1) * settings.wStep);
 
 }, { passive: false });
 
 document.addEventListener('keydown', e => {
-  keys[e.code] = true;
+  engine.setKey(e.code, true);
 
   if (
     e.code === 'Equal' ||
@@ -1054,7 +539,7 @@ document.addEventListener('keydown', e => {
     e.code === 'KeyE'
   ) {
     e.preventDefault();
-    changeW(W_STEP);
+    engine.changeW(settings.wStep);
   }
 
   if (
@@ -1063,61 +548,36 @@ document.addEventListener('keydown', e => {
     e.code === 'KeyQ'
   ) {
     e.preventDefault();
-    changeW(-W_STEP);
+    engine.changeW(-settings.wStep);
   }
 
-  if (e.code === 'KeyR') {
-    resetPlayer();
+  if (e.code === 'KeyR' && mode !== 'world') {
+    const spawn = engine.getCurrentLevel()?.spawn;
+
+    if (spawn) {
+      engine.respawnTo(spawn);
+    }
   }
 
-  if (e.code === 'Escape' && running) {
-    pause();
+  if (e.code === 'Escape' && engine.getRunning()) {
+    pauseGame();
   }
 });
 
 document.addEventListener('keyup', e => {
-  keys[e.code] = false;
+  engine.setKey(e.code, false);
 });
-
-
-// ============================================================
-// RESIZING
-// ============================================================
-
-window.addEventListener('resize', () => {
-  // Main camera.
-  camera.aspect = window.innerWidth / window.innerHeight;
-  camera.updateProjectionMatrix();
-
-  renderer.setSize(
-    window.innerWidth,
-    window.innerHeight
-  );
-
-  // WXZ camera.
-  if (perceptionRenderer && perceptionCanvas) {
-    perceptionRenderer.setSize(
-      perceptionCanvas.clientWidth,
-      perceptionCanvas.clientHeight
-    );
-
-    perceptionCamera.aspect =
-      perceptionCanvas.clientWidth /
-      perceptionCanvas.clientHeight;
-
-    perceptionCamera.updateProjectionMatrix();
-
-    perceptionCamera.up.set(0, 1, 0);
-  }
-});
-
 
 // ============================================================
 // INITIALISATION
 // ============================================================
 
-createPerceptionView();
+// Debug/test handle: lets the console inspect live engine state.
+window.W = { engine, world, settings };
 
-requestAnimationFrame(animate);
+bindOptionsUI(engine.applyOptions);
+world.init({ showScreen });
+updateStoryButton();
+showScreen('title-screen');
 
 fetchLevels();
